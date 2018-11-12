@@ -4,7 +4,7 @@ FIT2CLOUD CodeDeploy Jenkins Plugin
 安装包
 ----------
 
-请登录客户支持门户，从【常用下载】栏目下载最新的Jenkins 插件安装包。
+请登录 FIT2CLOUD 客户支持门户，从【常用下载】栏目下载最新的Jenkins 插件安装包。
 
 
 Development
