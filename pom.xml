@@ -7,11 +7,11 @@
         <version>2.19</version>
     </parent>
 
-    <artifactId>codedeploy2</artifactId>
+    <artifactId>codedeploy-plugin-F2C2.0</artifactId>
     <version>2.0</version>
     <packaging>hpi</packaging>
     <groupId>com.fit2cloud</groupId>
-    <name>codedeploy-plugin</name>
+    <name>codedeploy-plugin-F2C2.0</name>
     <description>Adds a post-build step to integrate Jenkins with FIT2CLOUD CodeDeploy</description>
     <url>https://wiki.jenkins-ci.org/display/JENKINS/FIT2CLOUD+Codedeploy+plugin</url>
 
@@ -24,13 +24,7 @@
         </license>
     </licenses>
 
-    <scm>
-        <connection>scm:git:ssh://git@github.com:fit2cloud/fit2cloud-codedeploy-plugin-ng.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com:fit2cloud/fit2cloud-codedeploy-plugin-ng.git
-        </developerConnection>
-        <url>https://github.com/fit2cloud/fit2cloud-codedeploy-plugin-ng</url>
-        <tag>HEAD</tag>
-    </scm>
+
 
     <repositories>
         <repository>
@@ -174,5 +168,12 @@
             </plugin>
         </plugins>
     </build>
+
+    <distributionManagement>
+        <repository>
+            <id>fit2cloud-public</id>
+            <url>http://repository.fit2cloud.com/content/repositories/fit2cloud-public</url>
+        </repository>
+    </distributionManagement>
 
 </project>
