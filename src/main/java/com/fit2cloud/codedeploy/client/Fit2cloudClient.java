@@ -89,11 +89,11 @@ public class Fit2cloudClient {
     }
 
 
-    public List<Application> getApplications(String workspaceId) {
+    public List<ApplicationDTO> getApplications(String workspaceId) {
         long currentPage = 1L;
         long pageSize = 100L;
         long pageCount;
-        List<Application> applications = new ArrayList<Application>();
+        List<ApplicationDTO> applications = new ArrayList<ApplicationDTO>();
         Map<String, String> headers = new HashMap<String, String>();
         headers.put("sourceId", workspaceId);
 
@@ -102,7 +102,7 @@ public class Fit2cloudClient {
             Result result = call(ApiUrlConstants.APPLICATION_LIST + "/" + currentPage + "/" + pageSize,RequestMethod.POST, new HashMap<String, Object>(), headers);
             Page page = JSON.parseObject(result.getData(), Page.class);
             String listJson = JSON.toJSONString(page.getListObject());
-            List<Application> apps = JSON.parseArray(listJson, Application.class);
+            List<ApplicationDTO> apps = JSON.parseArray(listJson, ApplicationDTO.class);
             applications.addAll(apps);
             pageCount = page.getPageCount();
             currentPage++;
@@ -110,18 +110,18 @@ public class Fit2cloudClient {
         return applications;
     }
 
-    public List<Cluster> getClusters(String workspaceId) {
+    public List<ClusterDTO> getClusters(String workspaceId) {
         long currentPage = 1L;
         long pageSize = 100L;
         long pageCount;
-        List<Cluster> clusters = new ArrayList<Cluster>();
+        List<ClusterDTO> clusters = new ArrayList<ClusterDTO>();
         Map<String, String> headers = new HashMap<String, String>();
         headers.put("sourceId", workspaceId);
         do {
             Result result = call(ApiUrlConstants.CLUSTER_LIST + "/" + currentPage + "/" + pageSize, RequestMethod.POST, new HashMap<String, Object>(), headers);
             Page page = JSON.parseObject(result.getData(), Page.class);
             String listJson = JSON.toJSONString(page.getListObject());
-            List<Cluster> clusts = JSON.parseArray(listJson, Cluster.class);
+            List<ClusterDTO> clusts = JSON.parseArray(listJson, ClusterDTO.class);
             clusters.addAll(clusts);
             pageCount = page.getPageCount();
             currentPage++;
@@ -195,7 +195,7 @@ public class Fit2cloudClient {
     }
 
 
-    public ApplicationVersion createApplicationVersion(ApplicationVersion applicationVersion, String workspaceId) {
+    public ApplicationVersion createApplicationVersion(ApplicationVersionDTO applicationVersion, String workspaceId) {
         Map<String, String> headers = new HashMap<String, String>();
         headers.put("sourceId", workspaceId);
         Result result = call(ApiUrlConstants.APPLICATION_VERSION_SAVE, RequestMethod.POST, applicationVersion, headers);

@@ -60,7 +60,6 @@ public class F2CCodeDeployPublisher extends Publisher {
     private PrintStream logger;
 
 
-
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
     @DataBoundConstructor
     public F2CCodeDeployPublisher(String f2cEndpoint,
@@ -287,9 +286,10 @@ public class F2CCodeDeployPublisher extends Publisher {
         ApplicationVersion appVersion = null;
         try {
             log("注册应用版本中...");
-            ApplicationVersion applicationVersion = new ApplicationVersion();
+            ApplicationVersionDTO applicationVersion = new ApplicationVersionDTO();
             applicationVersion.setApplicationId(this.applicationId);
             applicationVersion.setName(this.applicationVersionName);
+            applicationVersion.setEnvironmentValueId(applicationSetting.getEnvironmentValueId());
             applicationVersion.setApplicationRepositoryId(applicationSetting.getRepositoryId());
             applicationVersion.setLocation(newAddress);
             appVersion = fit2cloudClient.createApplicationVersion(applicationVersion, this.workspaceId);
@@ -447,7 +447,7 @@ public class F2CCodeDeployPublisher extends Publisher {
             ListBoxModel items = new ListBoxModel();
             try {
                 Fit2cloudClient fit2CloudClient = new Fit2cloudClient(f2cAccessKey, f2cSecretKey, f2cEndpoint);
-                List<Application> list = fit2CloudClient.getApplications(workspaceId);
+                List<ApplicationDTO> list = fit2CloudClient.getApplications(workspaceId);
                 if (list != null && list.size() > 0) {
                     for (Application c : list) {
                         items.add(c.getName(), String.valueOf(c.getId()));
@@ -470,6 +470,9 @@ public class F2CCodeDeployPublisher extends Publisher {
                 List<ApplicationSetting> list = fit2CloudClient.getApplicationSettings(applicationId);
                 if (list != null && list.size() > 0) {
                     for (ApplicationSetting c : list) {
+                        if (c.getEnvironmentValueId().equalsIgnoreCase("all")){
+                            c.setEnvValue("全部环境");
+                        }
                         items.add(c.getEnvValue() + "---" + c.getRepositoryType(), String.valueOf(c.getId()));
                     }
                 }
@@ -481,17 +484,42 @@ public class F2CCodeDeployPublisher extends Publisher {
         }
 
 
+
         public ListBoxModel doFillClusterIdItems(@QueryParameter String f2cAccessKey,
                                                  @QueryParameter String f2cSecretKey,
                                                  @QueryParameter String f2cEndpoint,
-                                                 @QueryParameter String workspaceId) {
+                                                 @QueryParameter String workspaceId,
+                                                 @QueryParameter String applicationId,
+                                                 @QueryParameter String applicationSettingId) {
             ListBoxModel items = new ListBoxModel();
             try {
                 Fit2cloudClient fit2CloudClient = new Fit2cloudClient(f2cAccessKey, f2cSecretKey, f2cEndpoint);
-                List<Cluster> list = fit2CloudClient.getClusters(workspaceId);
+                List<ClusterDTO> list = fit2CloudClient.getClusters(workspaceId);
+
+                final Fit2cloudClient fit2cloudClient = new Fit2cloudClient(f2cAccessKey, f2cSecretKey, f2cEndpoint);
+                ApplicationDTO applicationDTO = null;
+                ApplicationSetting applicationSetting = null;
+                List<ApplicationDTO> applications = fit2cloudClient.getApplications(workspaceId);
+                for (ApplicationDTO app : applications) {
+                    if (app.getId().equalsIgnoreCase(applicationId)) {
+                        applicationDTO = app;
+                    }
+                }
+                List<ApplicationSetting> applicationSettings = fit2cloudClient.getApplicationSettings(applicationId);
+                for (ApplicationSetting appst : applicationSettings) {
+                    if (appst.getId().equalsIgnoreCase(applicationSettingId)) {
+                        applicationSetting = appst;
+                    }
+                }
+                String envValueId = applicationSetting.getEnvironmentValueId();
+                String businessValueId = applicationDTO.getBusinessValueId();
+
                 if (list != null && list.size() > 0) {
-                    for (Cluster c : list) {
-                        items.add(c.getName(), String.valueOf(c.getId()));
+                    for (ClusterDTO c : list) {
+                        if ((businessValueId == null || businessValueId.equalsIgnoreCase(c.getSystemValueId()))
+                                && (envValueId.equalsIgnoreCase("ALL") || envValueId.equalsIgnoreCase(c.getEnvValueId()))) {
+                            items.add(c.getName(), String.valueOf(c.getId()));
+                        }
                     }
                 }
             } catch (Exception e) {
@@ -650,6 +678,7 @@ public class F2CCodeDeployPublisher extends Publisher {
     public String getWorkspaceId() {
         return workspaceId;
     }
+
     public String getCloudServerId() {
         return cloudServerId;
     }
