@@ -1,4 +1,4 @@
-FIT2CLOUD CodeDeploy Jenkins Plugin
+FIT2CLOUD2.0 CodeDeploy Jenkins Plugin
 =============================
 
 安装包
