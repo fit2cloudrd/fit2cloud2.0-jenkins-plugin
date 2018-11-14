@@ -26,7 +26,7 @@ public class NexusUploader {
 	    RepositorySystem system = newRepositorySystem();
 	    RepositorySystemSession session = newSession(system);
 
-	    Artifact artifact = new DefaultArtifact(groupId, artifactId, classifier, extension, version);
+	    Artifact artifact = new DefaultArtifact(groupId, artifactId, "", extension, version);
 	    artifact = artifact.setFile(uploadFile);
 
 	    // add authentication to connect to remove repository

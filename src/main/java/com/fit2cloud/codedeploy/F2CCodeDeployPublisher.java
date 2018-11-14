@@ -230,7 +230,9 @@ public class F2CCodeDeployPublisher extends Publisher {
             return false;
         }
         ApplicationSetting applicationSetting = null;
+        String newAppVersion = null;
         try {
+            newAppVersion = Utils.replaceTokens(build, listener, this.applicationVersionName);
             applicationSetting = findApplicationSetting(this.applicationId);
             String path = applicationSetting.getPath();
             String repType = applicationSetting.getRepositoryType();
@@ -350,7 +352,7 @@ public class F2CCodeDeployPublisher extends Publisher {
                     }
                     String nexusGroupIdNew = sb.toString();
                     String nexusArtifactIdNew = artifactId;
-                    String nexusArtifactVersionNew = this.applicationVersionName;
+                    String nexusArtifactVersionNew = newAppVersion;
 
                     log("开始上传zip文件到nexus服务器");
                     try {
@@ -372,10 +374,8 @@ public class F2CCodeDeployPublisher extends Publisher {
             return false;
         }
         ApplicationVersion appVersion = null;
-
         try {
             log("注册应用版本中...");
-            String newAppVersion = Utils.replaceTokens(build, listener, this.applicationVersionName);
             ApplicationVersionDTO applicationVersion = new ApplicationVersionDTO();
             applicationVersion.setApplicationId(this.applicationId);
             applicationVersion.setName(newAppVersion);
