@@ -284,11 +284,13 @@ public class F2CCodeDeployPublisher extends Publisher {
             return false;
         }
         ApplicationVersion appVersion = null;
+
         try {
             log("注册应用版本中...");
+            String newAppVersion = Utils.replaceTokens(build, listener, this.applicationVersionName);
             ApplicationVersionDTO applicationVersion = new ApplicationVersionDTO();
             applicationVersion.setApplicationId(this.applicationId);
-            applicationVersion.setName(this.applicationVersionName);
+            applicationVersion.setName(newAppVersion);
             applicationVersion.setEnvironmentValueId(applicationSetting.getEnvironmentValueId());
             applicationVersion.setApplicationRepositoryId(applicationSetting.getRepositoryId());
             applicationVersion.setLocation(newAddress);
