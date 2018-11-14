@@ -124,9 +124,97 @@ public class F2CCodeDeployPublisher extends Publisher {
             log("Skipping CodeDeploy publisher as build failed");
             return true;
         }
+        final Fit2cloudClient fit2cloudClient = new Fit2cloudClient(this.f2cAccessKey, this.f2cSecretKey, this.f2cEndpoint);
+
+        log("开始校验参数...");
+        try {
+            boolean findWorkspace = false;
+            List<Workspace> workspaces = fit2cloudClient.getWorkspace();
+            for (Workspace workspace : workspaces) {
+                if (workspace.getId().equals(this.workspaceId)) {
+                    findWorkspace = true;
+                }
+            }
+            if (!findWorkspace) {
+                throw new CodeDeployException("工作空间不存在！");
+            }
+
+            boolean findApplication = false;
+            List<ApplicationDTO> applications = fit2cloudClient.getApplications(this.workspaceId);
+            for (ApplicationDTO applicationDTO : applications) {
+                if (applicationDTO.getId().equals(this.applicationId)) {
+                    findApplication = true;
+                }
+            }
+            if (!findApplication) {
+                throw new CodeDeployException("应用不存在！");
+            }
+            boolean findApplicationSetting = false;
+            List<ApplicationSetting> applicationSettings = fit2cloudClient.getApplicationSettings(this.applicationId);
+            for (ApplicationSetting applicationSetting : applicationSettings) {
+                if (applicationSetting.getId().equals(this.applicationSettingId)) {
+                    findApplicationSetting = true;
+                }
+            }
+            if (!findApplicationSetting) {
+                throw new CodeDeployException("应用设置不存在！");
+            }
+
+            if (autoDeploy) {
+                boolean findCluster = false;
+                List<ClusterDTO> clusters = fit2cloudClient.getClusters(this.workspaceId);
+                for (ClusterDTO clusterDTO : clusters) {
+                    if (clusterDTO.getId().equals(this.clusterId)) {
+                        findCluster = true;
+                    }
+                }
+                if (!findCluster) {
+                    throw new CodeDeployException("集群不存在! ");
+                }
+
+
+                List<ClusterRole> clusterRoles = fit2cloudClient.getClusterRoles(this.workspaceId, this.clusterId);
+
+                if (clusterRoles.size() == 0) {
+                    throw new CodeDeployException("此集群下主机组为空！");
+                }
+
+                if (!clusterRoleId.equalsIgnoreCase("ALL")) {
+                    boolean findClusterRole = false;
+                    for (ClusterRole clusterRole : clusterRoles) {
+                        if (clusterRole.getId().equals(this.clusterRoleId)) {
+                            findClusterRole = true;
+                        }
+                    }
+                    if (!findClusterRole) {
+                        throw new CodeDeployException("主机组不存在! ");
+                    }
+                }
+
+                List<CloudServer> cloudServers = fit2cloudClient.getCloudServers(this.workspaceId, this.clusterRoleId, this.clusterId);
+                if (cloudServers.size() == 0) {
+                    throw new CodeDeployException("此主机组下主机为空！");
+                }
+                if (!cloudServerId.equalsIgnoreCase("ALL")) {
+                    boolean findCLoudServer = false;
+                    for (CloudServer cloudServer : cloudServers) {
+                        if (cloudServer.getId().equals(this.cloudServerId)) {
+                            findCLoudServer = true;
+                        }
+                    }
+                    if (!findCLoudServer) {
+                        throw new CodeDeployException("主机组不存在! ");
+                    }
+                }
+
+            }
+        } catch (Exception e) {
+            log(e.getMessage());
+            return false;
+        }
+
 
         FilePath workspace = build.getWorkspace();
-        final Fit2cloudClient fit2cloudClient = new Fit2cloudClient(this.f2cAccessKey, this.f2cSecretKey, this.f2cEndpoint);
 
         File zipFile = null;
         String zipFileName = null;
@@ -472,7 +560,7 @@ public class F2CCodeDeployPublisher extends Publisher {
                 List<ApplicationSetting> list = fit2CloudClient.getApplicationSettings(applicationId);
                 if (list != null && list.size() > 0) {
                     for (ApplicationSetting c : list) {
-                        if (c.getEnvironmentValueId().equalsIgnoreCase("all")){
+                        if (c.getEnvironmentValueId().equalsIgnoreCase("all")) {
                             c.setEnvValue("全部环境");
                         }
                         items.add(c.getEnvValue() + "---" + c.getRepositoryType(), String.valueOf(c.getId()));
@@ -484,7 +572,6 @@ public class F2CCodeDeployPublisher extends Publisher {
             }
             return items;
         }
-
 
 
         public ListBoxModel doFillClusterIdItems(@QueryParameter String f2cAccessKey,

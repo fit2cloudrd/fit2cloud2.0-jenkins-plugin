@@ -215,7 +215,9 @@ public class Fit2cloudClient {
                 HttpGet httpGet = new HttpGet(url);
                 auth(httpGet);
                 HttpResponse response = httpClient.execute(httpGet);
+
                 HttpEntity httpEntity = response.getEntity();
+
                 responseJson = EntityUtils.toString(httpEntity);
             } else {
                 HttpPost httpPost = new HttpPost(url);
