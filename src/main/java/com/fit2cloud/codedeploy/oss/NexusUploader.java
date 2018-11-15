@@ -44,7 +44,7 @@ public class NexusUploader {
 	    	targetUrl += "/";
 	    }
 	    
-	    String url = targetUrl + groupId.replace(".", "/") + "/"+artifactId+"/"+version+"/"+artifactId+"-"+version+"-"+classifier+".zip";
+	    String url = targetUrl + groupId.replace(".", "/") + "/"+artifactId+"/"+version+"/"+artifactId+"-"+version+".zip";
 	    return url;
 	}
 
