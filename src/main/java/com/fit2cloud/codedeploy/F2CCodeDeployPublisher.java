@@ -28,6 +28,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.List;
 
 public class F2CCodeDeployPublisher extends Publisher {
@@ -36,9 +37,9 @@ public class F2CCodeDeployPublisher extends Publisher {
     private final String f2cAccessKey;
     private final String f2cSecretKey;
     private final String workspaceId;
-    private final String applicationRepositoryId;
     private final String applicationId;
     private final String applicationSettingId;
+    private final String applicationRepositoryId;
     private final String clusterId;
     private final String clusterRoleId;
     private final String cloudServerId;
@@ -65,8 +66,8 @@ public class F2CCodeDeployPublisher extends Publisher {
     public F2CCodeDeployPublisher(String f2cEndpoint,
                                   String f2cAccessKey,
                                   String f2cSecretKey,
-                                  String applicationRepositoryId,
                                   String applicationId,
+                                  String applicationRepositoryId,
                                   String clusterId,
                                   String clusterRoleId,
                                   String workspaceId,
@@ -89,10 +90,10 @@ public class F2CCodeDeployPublisher extends Publisher {
         this.f2cAccessKey = f2cAccessKey;
         this.f2cSecretKey = f2cSecretKey;
         this.applicationId = applicationId;
-        this.applicationSettingId = applicationSettingId;
         this.clusterId = clusterId;
         this.clusterRoleId = clusterRoleId;
         this.workspaceId = workspaceId;
+        this.applicationSettingId = applicationSettingId;
         this.cloudServerId = cloudServerId;
         this.applicationRepositoryId = applicationRepositoryId;
         this.applicationVersionName = applicationVersionName;
@@ -515,6 +516,7 @@ public class F2CCodeDeployPublisher extends Publisher {
                                                    @QueryParameter String f2cSecretKey,
                                                    @QueryParameter String f2cEndpoint) {
             ListBoxModel items = new ListBoxModel();
+            items.add("请选择工作空间","");
             try {
                 Fit2cloudClient fit2CloudClient = new Fit2cloudClient(f2cAccessKey, f2cSecretKey, f2cEndpoint);
                 List<Workspace> list = fit2CloudClient.getWorkspace();
@@ -536,8 +538,13 @@ public class F2CCodeDeployPublisher extends Publisher {
                                                      @QueryParameter String workspaceId) {
             ListBoxModel items = new ListBoxModel();
             try {
+                List<ApplicationDTO> list = new ArrayList<>();
+                items.add("请选择应用","");
                 Fit2cloudClient fit2CloudClient = new Fit2cloudClient(f2cAccessKey, f2cSecretKey, f2cEndpoint);
-                List<ApplicationDTO> list = fit2CloudClient.getApplications(workspaceId);
+                if (workspaceId != null && !workspaceId.equals("")) {
+                    list = fit2CloudClient.getApplications(workspaceId);
+                }
+                System.out.println(workspaceId);
                 if (list != null && list.size() > 0) {
                     for (Application c : list) {
                         items.add(c.getName(), String.valueOf(c.getId()));
@@ -557,6 +564,7 @@ public class F2CCodeDeployPublisher extends Publisher {
             ListBoxModel items = new ListBoxModel();
             try {
                 Fit2cloudClient fit2CloudClient = new Fit2cloudClient(f2cAccessKey, f2cSecretKey, f2cEndpoint);
+                items.add("请选择环境","");
                 List<ApplicationSetting> list = fit2CloudClient.getApplicationSettings(applicationId);
                 if (list != null && list.size() > 0) {
                     for (ApplicationSetting c : list) {
@@ -581,6 +589,8 @@ public class F2CCodeDeployPublisher extends Publisher {
                                                  @QueryParameter String applicationId,
                                                  @QueryParameter String applicationSettingId) {
             ListBoxModel items = new ListBoxModel();
+            items.add("请选择集群","");
+
             try {
                 Fit2cloudClient fit2CloudClient = new Fit2cloudClient(f2cAccessKey, f2cSecretKey, f2cEndpoint);
                 List<ClusterDTO> list = fit2CloudClient.getClusters(workspaceId);
@@ -624,6 +634,8 @@ public class F2CCodeDeployPublisher extends Publisher {
                                                      @QueryParameter String workspaceId,
                                                      @QueryParameter String clusterId) {
             ListBoxModel items = new ListBoxModel();
+            items.add("请选择主机组","");
+
             try {
                 Fit2cloudClient fit2CloudClient = new Fit2cloudClient(f2cAccessKey, f2cSecretKey, f2cEndpoint);
                 List<ClusterRole> list = fit2CloudClient.getClusterRoles(workspaceId, clusterId);
@@ -647,6 +659,7 @@ public class F2CCodeDeployPublisher extends Publisher {
                                                      @QueryParameter String clusterId,
                                                      @QueryParameter String clusterRoleId) {
             ListBoxModel items = new ListBoxModel();
+            items.add("请选择主机","");
             try {
                 Fit2cloudClient fit2CloudClient = new Fit2cloudClient(f2cAccessKey, f2cSecretKey, f2cEndpoint);
                 List<CloudServer> list = fit2CloudClient.getCloudServers(workspaceId, clusterRoleId, clusterId);
