@@ -1,12 +1,23 @@
 package com.fit2cloud.codedeploy2.client.model;
 
 
+import java.util.List;
+
 public class ApplicationDTO extends Application {
     private String businessValueId;
     private String organizationName;
     private String workspaceName;
     private Integer countVersion;
+    private List<ApplicationRepositorySetting> applicationRepositorySettings;
 
+
+    public List<ApplicationRepositorySetting> getApplicationRepositorySettings() {
+        return applicationRepositorySettings;
+    }
+
+    public void setApplicationRepositorySettings(List<ApplicationRepositorySetting> applicationRepositorySettings) {
+        this.applicationRepositorySettings = applicationRepositorySettings;
+    }
 
     public Integer getCountVersion() {
         return countVersion;

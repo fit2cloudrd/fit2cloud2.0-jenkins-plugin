@@ -4,6 +4,7 @@ import com.fit2cloud.codedeploy2.client.Fit2cloudClient;
 import com.fit2cloud.codedeploy2.client.model.*;
 import com.fit2cloud.codedeploy2.oss.AWSS3Client;
 import com.fit2cloud.codedeploy2.oss.AliyunOSSClient;
+import com.fit2cloud.codedeploy2.oss.ArtifactoryUploader;
 import com.fit2cloud.codedeploy2.oss.NexusUploader;
 import hudson.Extension;
 import hudson.FilePath;
@@ -45,9 +46,6 @@ public class F2CCodeDeployPublisher extends Publisher {
     private final String cloudServerId;
     private final String deployPolicy;
     private final String applicationVersionName;
-    private final boolean nexusChecked;
-    private final boolean ossChecked;
-    private final boolean s3Checked;
     private final boolean autoDeploy;
     private final String includes;
     private final String excludes;
@@ -56,6 +54,20 @@ public class F2CCodeDeployPublisher extends Publisher {
     private final boolean waitForCompletion;
     private final Long pollingTimeoutSec;
     private final Long pollingFreqSec;
+    private final String nexusGroupId;
+    private final String nexusArtifactId;
+    private final String nexusArtifactVersion;
+    private final boolean nexusChecked;
+    private final boolean ossChecked;
+    private final boolean s3Checked;
+    private final boolean artifactoryChecked;
+    private final String path;
+    //上传到阿里云参数
+    private final String objectPrefixAliyun;
+    //上传到亚马逊参数
+    private final String objectPrefixAWS;
+    private final String repositorySettingId;
+    private final String artifactType;
 
 
     private PrintStream logger;
@@ -79,15 +91,26 @@ public class F2CCodeDeployPublisher extends Publisher {
                                   boolean nexusChecked,
                                   boolean ossChecked,
                                   boolean s3Checked,
+                                  boolean artifactoryChecked,
                                   boolean autoDeploy,
                                   Long pollingTimeoutSec,
                                   Long pollingFreqSec,
                                   String includes,
                                   String excludes,
                                   String appspecFilePath,
-                                  String description) {
+                                  String description,
+                                  String artifactType,
+                                  String repositorySettingId,
+                                  String objectPrefixAliyun,
+                                  String objectPrefixAWS,
+                                  String path,
+                                  String nexusGroupId,
+                                  String nexusArtifactId,
+                                  String nexusArtifactVersion) {
         this.f2cEndpoint = f2cEndpoint;
         this.f2cAccessKey = f2cAccessKey;
+        this.artifactType = StringUtils.isBlank(artifactType) ? ArtifactType.NEXUS : artifactType;
+        this.repositorySettingId = repositorySettingId;
         this.f2cSecretKey = f2cSecretKey;
         this.applicationId = applicationId;
         this.clusterId = clusterId;
@@ -98,9 +121,6 @@ public class F2CCodeDeployPublisher extends Publisher {
         this.applicationRepositoryId = applicationRepositoryId;
         this.applicationVersionName = applicationVersionName;
         this.deployPolicy = deployPolicy;
-        this.nexusChecked = nexusChecked;
-        this.ossChecked = ossChecked;
-        this.s3Checked = s3Checked;
         this.autoDeploy = autoDeploy;
         this.includes = includes;
         this.excludes = excludes;
@@ -109,6 +129,17 @@ public class F2CCodeDeployPublisher extends Publisher {
         this.pollingFreqSec = pollingFreqSec;
         this.pollingTimeoutSec = pollingTimeoutSec;
         this.waitForCompletion = waitForCompletion;
+        this.objectPrefixAliyun = objectPrefixAliyun;
+        this.objectPrefixAWS = objectPrefixAWS;
+        this.path = path;
+        this.nexusGroupId = nexusGroupId;
+        this.nexusArtifactId = nexusArtifactId;
+        this.nexusArtifactVersion = nexusArtifactVersion;
+        this.nexusChecked = artifactType.equals(ArtifactType.NEXUS) ? true : false;
+        this.artifactoryChecked = artifactType.equals(ArtifactType.ARTIFACTORY) ? true : false;
+        this.ossChecked = artifactType.equals(ArtifactType.OSS) ? true : false;
+        this.s3Checked = artifactType.equals(ArtifactType.S3) ? true : false;
+        ;
 
 
     }
@@ -126,6 +157,7 @@ public class F2CCodeDeployPublisher extends Publisher {
             return true;
         }
         final Fit2cloudClient fit2cloudClient = new Fit2cloudClient(this.f2cAccessKey, this.f2cSecretKey, this.f2cEndpoint);
+
 
         log("开始校验参数...");
         try {
@@ -150,16 +182,7 @@ public class F2CCodeDeployPublisher extends Publisher {
             if (!findApplication) {
                 throw new CodeDeployException("应用不存在！");
             }
-            boolean findApplicationSetting = false;
-            List<ApplicationSetting> applicationSettings = fit2cloudClient.getApplicationSettings(this.applicationId);
-            for (ApplicationSetting applicationSetting : applicationSettings) {
-                if (applicationSetting.getId().equals(this.applicationSettingId)) {
-                    findApplicationSetting = true;
-                }
-            }
-            if (!findApplicationSetting) {
-                throw new CodeDeployException("应用设置不存在！");
-            }
+
 
             if (autoDeploy) {
                 boolean findCluster = false;
@@ -215,6 +238,50 @@ public class F2CCodeDeployPublisher extends Publisher {
         }
 
 
+        // 查询仓库
+        ApplicationRepository applicationRepository = null;
+        ApplicationRepositorySetting repSetting = null;
+        ApplicationRepository rep = null;
+        try {
+            ApplicationDTO app = null;
+            List<ApplicationDTO> applicationDTOS = fit2cloudClient.getApplications(workspaceId);
+            for (ApplicationDTO applicationDTO : applicationDTOS) {
+                if (applicationDTO.getId().equals(this.applicationId)) {
+                    app = applicationDTO;
+                }
+            }
+            if (app != null) {
+                for (ApplicationRepositorySetting setting : app.getApplicationRepositorySettings()) {
+                    if (setting.getId().equals(repositorySettingId)) {
+                        repSetting = setting;
+                    }
+                }
+            }
+            if (repSetting != null) {
+                List<ApplicationRepository> repositories = fit2cloudClient.getApplicationRepositorys(workspaceId);
+                for (ApplicationRepository re : repositories) {
+                    if (re.getId().equals(repSetting.getRepositoryId())) {
+                        rep = re;
+                    }
+                }
+            }
+
+            if (rep != null) {
+                applicationRepository = rep;
+            }
+
+            String repoType = applicationRepository.getType();
+            if (!artifactType.equalsIgnoreCase(repoType)) {
+                log("所选仓库与 \"Zip文件上传设置\"中的类型设置不匹配!");
+                return false;
+            }
+
+        } catch (Exception e) {
+            log("加载仓库失败！" + e.getMessage());
+            return false;
+        }
+
+
         FilePath workspace = build.getWorkspace();
 
         File zipFile = null;
@@ -226,21 +293,9 @@ public class F2CCodeDeployPublisher extends Publisher {
             String excludesNew = Utils.replaceTokens(build, listener, this.excludes);
             String appspecFilePathNew = Utils.replaceTokens(build, listener, this.appspecFilePath);
             zipFile = zipFile(zipFileName, workspace, includesNew, excludesNew, appspecFilePathNew);
-        } catch (Exception e) {
-            log("生成ZIP包失败: " + e.getMessage());
-            return false;
-        }
-        ApplicationSetting applicationSetting = null;
-        String newAppVersion = null;
-        try {
-            newAppVersion = Utils.replaceTokens(build, listener, this.applicationVersionName);
-            applicationSetting = findApplicationSetting(this.applicationId);
-            String path = applicationSetting.getPath();
-            String repType = applicationSetting.getRepositoryType();
-            log("仓库类型为: " + repType);
-            log("上传路径为: " + path);
 
-            switch (applicationSetting.getRepositoryType()) {
+
+            switch (artifactType) {
                 case ArtifactType.OSS:
                     log("开始上传zip文件到OSS服务器");
                     //getBucketLocation
@@ -251,21 +306,19 @@ public class F2CCodeDeployPublisher extends Publisher {
                     }
 
                     // Resolve virtual path
-                    String expVP = path;
+                    String expVP = Utils.replaceTokens(build, listener, objectPrefixAliyun);
                     if (Utils.isNullOrEmpty(expVP)) {
                         expVP = null;
                     }
                     if (!Utils.isNullOrEmpty(expVP) && !expVP.endsWith(Utils.FWD_SLASH)) {
                         expVP = expVP.trim() + Utils.FWD_SLASH;
                     }
-
-                    String bucketName = applicationSetting.getRepositoryAddr().replace("bucket:", "");
                     try {
                         int filesUploaded = AliyunOSSClient.upload(build, listener,
-                                applicationSetting.getAccessId(),
-                                applicationSetting.getAccessPassword(),
+                                applicationRepository.getAccessId(),
+                                applicationRepository.getAccessPassword(),
                                 ".aliyuncs.com",
-                                bucketName, expFP, expVP);
+                                applicationRepository.getRepository().replace("bucket:", ""), expFP, expVP);
                         if (filesUploaded > 0) {
                             log("上传Artifacts到阿里云OSS成功!");
                         }
@@ -279,85 +332,44 @@ public class F2CCodeDeployPublisher extends Publisher {
                     if (expVP == null) {
                         newAddress = zipFile.getName();
                     } else {
-                        if (expVP.endsWith("/")) {
-                            newAddress = path + zipFileName;
-                        } else {
-                            newAddress = path + "/" + zipFile.getName();
-                        }
+                        newAddress = objectPrefixAliyun + "/" + zipFile.getName();
                     }
                     log("文件路径" + newAddress);
                     break;
-                case ArtifactType.S3:
-                    log("开始上传zip文件到OSS服务器");
-                    //getBucketLocation
-                    String expF = Utils.replaceTokens(build, listener, zipFile.toString());
-
-                    if (expF != null) {
-                        expF = expF.trim();
+                case ArtifactType.ARTIFACTORY:
+                    log("开始上传zip文件到Artifactory服务器");
+                    if (StringUtils.isBlank(path)) {
+                        log("请输入上传至 Artifactory 的 Path");
+                        return false;
                     }
-
-                    // Resolve virtual path
-                    String expV = path;
-                    if (Utils.isNullOrEmpty(expV)) {
-                        expV = null;
-                    }
-                    if (!Utils.isNullOrEmpty(expV) && !expV.endsWith(Utils.FWD_SLASH)) {
-                        expV = expV.trim() + Utils.FWD_SLASH;
-                    }
-
-                    String bkname = applicationSetting.getRepositoryAddr().replace("bucket:", "");
+                    String pathNew = Utils.replaceTokens(build, listener, path);
                     try {
-                        int filesUploaded = AWSS3Client.upload(build, listener,
-                                applicationSetting.getAccessId(),
-                                applicationSetting.getAccessPassword(),
-                                null,
-                                bkname, expF, expV);
-                        if (filesUploaded > 0) {
-                            log("上传Artifacts到亚马逊S3成功!");
-                        }
+
+                        String r = applicationRepository.getRepository();
+                        String server = r.substring(0, r.indexOf("/artifactory"));
+                        newAddress = ArtifactoryUploader.uploadArtifactory(zipFile, server.trim(),
+                                applicationRepository.getAccessId(), applicationRepository.getAccessPassword(), r, pathNew);
                     } catch (Exception e) {
-                        log("上传Artifact到亚马逊S3失败，错误消息如下:");
+                        log("上传文件到 Artifactory 服务器失败！错误消息如下:");
                         log(e.getMessage());
                         e.printStackTrace(this.logger);
                         return false;
                     }
-                    log("上传zip文件到亚马逊S3成功!");
-                    if (expV == null) {
-                        newAddress = zipFile.getName();
-                    } else {
-                        if (expV.endsWith("/")) {
-                            newAddress = path + zipFileName;
-                        } else {
-                            newAddress = path + "/" + zipFile.getName();
-                        }
-                    }
-                    log("文件路径" + newAddress);
+                    log("上传zip文件到Artifactory服务器成功!");
                     break;
                 case ArtifactType.NEXUS:
-                    String repoAddr = applicationSetting.getRepositoryAddr();
-                    String key = applicationSetting.getPath();
-
-                    String newKey = key.replace(repoAddr + "/", "");
-                    String[] splitArr = newKey.split("/");
-                    String artifactId = splitArr[splitArr.length - 1];
-                    StringBuilder sb = new StringBuilder();
-                    int i = 0;
-                    for (String str : splitArr) {
-                        if (i < splitArr.length - 1) {
-                            if (i != 0) {
-                                sb.append(".");
-                            }
-                            sb.append(str);
-                            i++;
-                        }
+                    if (StringUtils.isBlank(nexusArtifactId) || StringUtils.isBlank(nexusGroupId) || StringUtils.isBlank(nexusArtifactVersion)) {
+                        log("请输入上传至 Nexus 的 GroupId、 ArtifactId 和 NexusArtifactVersion");
+                        return false;
                     }
-                    String nexusGroupIdNew = sb.toString();
-                    String nexusArtifactIdNew = artifactId;
-                    String nexusArtifactVersionNew = newAppVersion;
+                    String nexusGroupIdNew = Utils.replaceTokens(build, listener, nexusGroupId);
+                    String nexusArtifactIdNew = Utils.replaceTokens(build, listener, nexusArtifactId);
+                    String nexusArtifactVersionNew = Utils.replaceTokens(build, listener, nexusArtifactVersion);
 
                     log("开始上传zip文件到nexus服务器");
                     try {
-                        newAddress = NexusUploader.upload(zipFile, applicationSetting.getAccessId(), applicationSetting.getAccessPassword(), applicationSetting.getRepositoryAddr(), nexusGroupIdNew, nexusArtifactIdNew, String.valueOf(build.getNumber()), "zip", nexusArtifactVersionNew);
+                        newAddress = NexusUploader.upload(zipFile, applicationRepository.getAccessId(), applicationRepository.getAccessPassword(), applicationRepository.getRepository(),
+                                nexusGroupIdNew, nexusArtifactIdNew, String.valueOf(builtNumber), "zip", nexusArtifactVersionNew);
                     } catch (Exception e) {
                         log("上传文件到 Nexus 服务器失败！错误消息如下:");
                         log(e.getMessage());
@@ -366,22 +378,66 @@ public class F2CCodeDeployPublisher extends Publisher {
                     }
                     log("上传zip文件到nexus服务器成功!");
                     break;
+                case ArtifactType.S3:
+                    log("开始上传zip文件到AWS服务器");
+                    //getBucketLocation
+                    String expFPAws = Utils.replaceTokens(build, listener, zipFile.toString());
+
+                    if (expFPAws != null) {
+                        expFPAws = expFPAws.trim();
+                    }
+
+                    // Resolve virtual path
+                    String expVPAws = Utils.replaceTokens(build, listener, objectPrefixAWS);
+                    if (Utils.isNullOrEmpty(expVPAws)) {
+                        expVPAws = null;
+                    }
+                    if (!Utils.isNullOrEmpty(expVPAws) && !expVPAws.endsWith(Utils.FWD_SLASH)) {
+                        expVPAws = expVPAws.trim() + Utils.FWD_SLASH;
+                    }
+                    try {
+                        AWSS3Client.upload(build, listener,
+                                applicationRepository.getAccessId(),
+                                applicationRepository.getAccessPassword(),
+                                null,
+                                applicationRepository.getRepository(), expFPAws, expVPAws);
+                        log("上传Artifacts到亚马逊AWS成功!");
+                    } catch (Exception e) {
+                        log("上传Artifact到亚马逊AWS失败，错误消息如下:");
+                        log(e.getMessage());
+                        e.printStackTrace(this.logger);
+                        return false;
+                    }
+                    log("上传zip文件到亚马逊AWS服务器成功!");
+                    if (expVPAws == null) {
+                        newAddress = zipFile.getName();
+                    } else {
+                        newAddress = objectPrefixAWS + "/" + zipFile.getName();
+                    }
+                    log("文件路径:" + newAddress);
+                    break;
                 default:
-                    log("仓库类型不支持!");
+                    log("暂时不支持 " + artifactType + " 类型制品库");
                     return false;
             }
+
+
         } catch (Exception e) {
-            log("上传zip失败:" + e.getMessage());
+            log("生成ZIP包失败: " + e.getMessage());
             return false;
         }
+
+
         ApplicationVersion appVersion = null;
         try {
             log("注册应用版本中...");
+            String newAppVersion = Utils.replaceTokens(build, listener, this.applicationVersionName);
             ApplicationVersionDTO applicationVersion = new ApplicationVersionDTO();
             applicationVersion.setApplicationId(this.applicationId);
             applicationVersion.setName(newAppVersion);
-            applicationVersion.setEnvironmentValueId(applicationSetting.getEnvironmentValueId());
-            applicationVersion.setApplicationRepositoryId(applicationSetting.getRepositoryId());
+            assert repSetting != null;
+            applicationVersion.setEnvironmentValueId(repSetting.getEnvId());
+            applicationVersion.setApplicationRepositoryId(repSetting.getRepositoryId());
             applicationVersion.setLocation(newAddress);
             appVersion = fit2cloudClient.createApplicationVersion(applicationVersion, this.workspaceId);
         } catch (Exception e) {
@@ -392,8 +448,8 @@ public class F2CCodeDeployPublisher extends Publisher {
 
         ApplicationDeployment applicationDeploy = null;
         try {
-            log("创建代码部署任务...");
             if (this.autoDeploy) {
+                log("创建代码部署任务...");
                 ApplicationDeployment applicationDeployment = new ApplicationDeployment();
                 applicationDeployment.setClusterId(this.clusterId);
                 applicationDeployment.setClusterRoleId(this.clusterRoleId);
@@ -516,7 +572,7 @@ public class F2CCodeDeployPublisher extends Publisher {
                                                    @QueryParameter String f2cSecretKey,
                                                    @QueryParameter String f2cEndpoint) {
             ListBoxModel items = new ListBoxModel();
-            items.add("请选择工作空间","");
+            items.add("请选择工作空间", "");
             try {
                 Fit2cloudClient fit2CloudClient = new Fit2cloudClient(f2cAccessKey, f2cSecretKey, f2cEndpoint);
                 List<Workspace> list = fit2CloudClient.getWorkspace();
@@ -539,7 +595,7 @@ public class F2CCodeDeployPublisher extends Publisher {
             ListBoxModel items = new ListBoxModel();
             try {
                 List<ApplicationDTO> list = new ArrayList<>();
-                items.add("请选择应用","");
+                items.add("请选择应用", "");
                 Fit2cloudClient fit2CloudClient = new Fit2cloudClient(f2cAccessKey, f2cSecretKey, f2cEndpoint);
                 if (workspaceId != null && !workspaceId.equals("")) {
                     list = fit2CloudClient.getApplications(workspaceId);
@@ -556,21 +612,51 @@ public class F2CCodeDeployPublisher extends Publisher {
             return items;
         }
 
-        public ListBoxModel doFillApplicationSettingIdItems(@QueryParameter String f2cAccessKey,
-                                                            @QueryParameter String f2cSecretKey,
-                                                            @QueryParameter String f2cEndpoint,
-                                                            @QueryParameter String applicationId) {
+        public ListBoxModel doFillRepositorySettingIdItems(@QueryParameter String f2cAccessKey,
+                                                           @QueryParameter String f2cSecretKey,
+                                                           @QueryParameter String f2cEndpoint,
+                                                           @QueryParameter String workspaceId,
+                                                           @QueryParameter String applicationId) {
             ListBoxModel items = new ListBoxModel();
             try {
                 Fit2cloudClient fit2CloudClient = new Fit2cloudClient(f2cAccessKey, f2cSecretKey, f2cEndpoint);
-                items.add("请选择环境","");
-                List<ApplicationSetting> list = fit2CloudClient.getApplicationSettings(applicationId);
+                items.add("请选择环境", "");
+                List<ApplicationDTO> applicationDTOS = fit2CloudClient.getApplications(workspaceId);
+
+                ApplicationDTO application = null;
+
+                for (ApplicationDTO applicationDTO : applicationDTOS) {
+                    if (applicationDTO.getId().equals(applicationId)) {
+                        application = applicationDTO;
+                    }
+                }
+
+                assert application != null;
+                List<ApplicationRepositorySetting> list = application.getApplicationRepositorySettings();
+                List<ApplicationRepository> applicationRepositories = fit2CloudClient.getApplicationRepositorys(workspaceId);
+                List<TagValue> envs = fit2CloudClient.getEnvList();
+
                 if (list != null && list.size() > 0) {
-                    for (ApplicationSetting c : list) {
-                        if (c.getEnvironmentValueId().equalsIgnoreCase("all")) {
-                            c.setEnvValue("全部环境");
+                    for (ApplicationRepositorySetting c : list) {
+                        ApplicationRepository repository = null;
+                        for (ApplicationRepository applicationRepository : applicationRepositories) {
+                            if (applicationRepository.getId().equals(c.getRepositoryId())) {
+                                repository = applicationRepository;
+                            }
                         }
-                        items.add(c.getEnvValue() + "---" + c.getRepositoryType(), String.valueOf(c.getId()));
+                        String envName = null;
+                        for (TagValue env : envs) {
+                            if (env.getId().equals(c.getEnvId())) {
+                                envName = env.getTagValueAlias();
+                            }
+                            if (c.getEnvId().equalsIgnoreCase("ALL")) {
+                                envName = "全部环境";
+                            }
+                        }
+
+
+                        assert repository != null;
+                        items.add(envName + "---" + repository.getType(), String.valueOf(c.getId()));
                     }
                 }
             } catch (Exception e) {
@@ -586,9 +672,9 @@ public class F2CCodeDeployPublisher extends Publisher {
                                                  @QueryParameter String f2cEndpoint,
                                                  @QueryParameter String workspaceId,
                                                  @QueryParameter String applicationId,
-                                                 @QueryParameter String applicationSettingId) {
+                                                 @QueryParameter String repositorySettingId) {
             ListBoxModel items = new ListBoxModel();
-            items.add("请选择集群","");
+            items.add("请选择集群", "");
 
             try {
                 Fit2cloudClient fit2CloudClient = new Fit2cloudClient(f2cAccessKey, f2cSecretKey, f2cEndpoint);
@@ -596,20 +682,21 @@ public class F2CCodeDeployPublisher extends Publisher {
 
                 final Fit2cloudClient fit2cloudClient = new Fit2cloudClient(f2cAccessKey, f2cSecretKey, f2cEndpoint);
                 ApplicationDTO applicationDTO = null;
-                ApplicationSetting applicationSetting = null;
                 List<ApplicationDTO> applications = fit2cloudClient.getApplications(workspaceId);
                 for (ApplicationDTO app : applications) {
                     if (app.getId().equalsIgnoreCase(applicationId)) {
                         applicationDTO = app;
                     }
                 }
-                List<ApplicationSetting> applicationSettings = fit2cloudClient.getApplicationSettings(applicationId);
-                for (ApplicationSetting appst : applicationSettings) {
-                    if (appst.getId().equalsIgnoreCase(applicationSettingId)) {
-                        applicationSetting = appst;
+                ApplicationRepositorySetting applicationRepositorySetting = null;
+                List<ApplicationRepositorySetting> repositorySettings = applicationDTO.getApplicationRepositorySettings();
+                for (ApplicationRepositorySetting appst : repositorySettings) {
+                    if (appst.getId().equalsIgnoreCase(repositorySettingId)) {
+                        applicationRepositorySetting = appst;
                     }
                 }
-                String envValueId = applicationSetting.getEnvironmentValueId();
+
+                String envValueId = applicationRepositorySetting.getEnvId();
                 String businessValueId = applicationDTO.getBusinessValueId();
 
                 if (list != null && list.size() > 0) {
@@ -633,7 +720,7 @@ public class F2CCodeDeployPublisher extends Publisher {
                                                      @QueryParameter String workspaceId,
                                                      @QueryParameter String clusterId) {
             ListBoxModel items = new ListBoxModel();
-            items.add("请选择主机组","");
+            items.add("请选择主机组", "");
 
             try {
                 Fit2cloudClient fit2CloudClient = new Fit2cloudClient(f2cAccessKey, f2cSecretKey, f2cEndpoint);
@@ -658,7 +745,7 @@ public class F2CCodeDeployPublisher extends Publisher {
                                                      @QueryParameter String clusterId,
                                                      @QueryParameter String clusterRoleId) {
             ListBoxModel items = new ListBoxModel();
-            items.add("请选择主机","");
+            items.add("请选择主机", "");
             try {
                 Fit2cloudClient fit2CloudClient = new Fit2cloudClient(f2cAccessKey, f2cSecretKey, f2cEndpoint);
                 List<CloudServer> list = fit2CloudClient.getCloudServers(workspaceId, clusterRoleId, clusterId);
@@ -764,6 +851,10 @@ public class F2CCodeDeployPublisher extends Publisher {
         return autoDeploy;
     }
 
+    public boolean isArtifactoryChecked() {
+        return artifactoryChecked;
+    }
+
     public String getApplicationSettingId() {
         return applicationSettingId;
     }
@@ -822,6 +913,26 @@ public class F2CCodeDeployPublisher extends Publisher {
 
     private void log(String msg) {
         logger.println(LOG_PREFIX + msg);
+    }
+
+    public String getRepositorySettingId() {
+        return repositorySettingId;
+    }
+
+    public String getArtifactType() {
+        return artifactType;
+    }
+
+    public String getObjectPrefixAliyun() {
+        return objectPrefixAliyun;
+    }
+
+    public String getObjectPrefixAWS() {
+        return objectPrefixAWS;
+    }
+
+    public String getPath() {
+        return path;
     }
 
 

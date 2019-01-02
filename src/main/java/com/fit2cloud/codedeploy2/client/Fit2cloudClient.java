@@ -36,11 +36,11 @@ public class Fit2cloudClient {
         this.secretKey = secretKey;
         this.endpoint = endpoint;
         RequestConfig requestConfig = RequestConfig
-            .custom()
-            .setConnectTimeout(CONNECT_TIME_OUT)
-            .setConnectionRequestTimeout(CONNECT_REQUEST_TIME_OUT).build();
+                .custom()
+                .setConnectTimeout(CONNECT_TIME_OUT)
+                .setConnectionRequestTimeout(CONNECT_REQUEST_TIME_OUT).build();
         httpClient = HttpClientBuilder.create()
-            .setDefaultRequestConfig(requestConfig).build();
+                .setDefaultRequestConfig(requestConfig).build();
     }
 
     public void checkUser() {
@@ -88,6 +88,11 @@ public class Fit2cloudClient {
         return applicationRepositories;
     }
 
+    public List<TagValue> getEnvList() {
+        Result result = call(ApiUrlConstants.APPLICATION_ENV_LIST, RequestMethod.GET);
+        return JSON.parseArray(result.getData(), TagValue.class);
+    }
+
 
     public List<ApplicationDTO> getApplications(String workspaceId) {
         long currentPage = 1L;
@@ -99,7 +104,7 @@ public class Fit2cloudClient {
 
 
         do {
-            Result result = call(ApiUrlConstants.APPLICATION_LIST + "/" + currentPage + "/" + pageSize,RequestMethod.POST, new HashMap<String, Object>(), headers);
+            Result result = call(ApiUrlConstants.APPLICATION_LIST + "/" + currentPage + "/" + pageSize, RequestMethod.POST, new HashMap<String, Object>(), headers);
             Page page = JSON.parseObject(result.getData(), Page.class);
             String listJson = JSON.toJSONString(page.getListObject());
             List<ApplicationDTO> apps = JSON.parseArray(listJson, ApplicationDTO.class);
@@ -109,6 +114,7 @@ public class Fit2cloudClient {
         } while (pageCount > currentPage);
         return applications;
     }
+
 
     public List<ClusterDTO> getClusters(String workspaceId) {
         long currentPage = 1L;
@@ -129,6 +135,7 @@ public class Fit2cloudClient {
         return clusters;
     }
 
+
     public List<ApplicationSetting> getApplicationSettings(String applicationId) {
         List<ApplicationSetting> applicationSettings = new ArrayList<>();
         Result result = call(ApiUrlConstants.APPLICATION_SETTING_LIST + "?appId=" + applicationId, RequestMethod.GET);
@@ -137,6 +144,7 @@ public class Fit2cloudClient {
         }
         return applicationSettings;
     }
+
 
     public List<ClusterRole> getClusterRoles(String workspaceId, String clusterId) {
         long currentPage = 1L;
@@ -272,6 +280,7 @@ public class Fit2cloudClient {
 
 class ApiUrlConstants {
     public static final String USER_INFO = "dashboard/user/info";
+    public static final String APPLICATION_REPOSITORY_LIST = "devops/application/repository/list";
     public static final String APPLICATION_SETTING_LIST = "devops/application/setting/list";
     public static final String APPLICATION_SETTING_GET = "devops/application/deploy/get";
     public static final String USER_PERMISSION_LIST = "dashboard/user/switch/source";
@@ -282,6 +291,7 @@ class ApiUrlConstants {
     public static final String SERVER_LIST = "devops/server/list";
     public static final String APPLICATION_VERSION_SAVE = "devops/application/version/save";
     public static final String APPLICATION_DEPLOY_SAVE = "devops/application/deploy/save";
+    public static final String APPLICATION_ENV_LIST = "devops/application/setting/env/list";
 }
 
 enum RequestMethod {
