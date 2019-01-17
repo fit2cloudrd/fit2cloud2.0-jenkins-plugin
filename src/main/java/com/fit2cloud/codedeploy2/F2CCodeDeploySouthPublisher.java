@@ -9,9 +9,7 @@ import com.fit2cloud.codedeploy2.oss.NexusUploader;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
-import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
-import hudson.model.BuildListener;
+import hudson.model.*;
 import hudson.model.Result;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
@@ -19,12 +17,16 @@ import hudson.tasks.Publisher;
 import hudson.util.DirScanner;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
+import jenkins.tasks.SimpleBuildStep;
 import net.sf.json.JSONObject;
 import org.apache.commons.lang.StringUtils;
+import org.jenkinsci.Symbol;
+import org.jenkinsci.plugins.workflow.support.steps.build.RunWrapper;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
+import javax.annotation.Nonnull;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -32,7 +34,7 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 
-public class F2CCodeDeployPublisher extends Publisher {
+public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuildStep {
     private static final String LOG_PREFIX = "[FIT2CLOUD 代码部署]";
     private final String f2cEndpoint;
     private final String f2cAccessKey;
@@ -69,44 +71,42 @@ public class F2CCodeDeployPublisher extends Publisher {
     private final String repositorySettingId;
     private final String artifactType;
 
-
     private PrintStream logger;
-
 
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
     @DataBoundConstructor
-    public F2CCodeDeployPublisher(String f2cEndpoint,
-                                  String f2cAccessKey,
-                                  String f2cSecretKey,
-                                  String applicationId,
-                                  String applicationRepositoryId,
-                                  String clusterId,
-                                  String clusterRoleId,
-                                  String workspaceId,
-                                  String applicationSettingId,
-                                  String cloudServerId,
-                                  String deployPolicy,
-                                  String applicationVersionName,
-                                  boolean waitForCompletion,
-                                  boolean nexusChecked,
-                                  boolean ossChecked,
-                                  boolean s3Checked,
-                                  boolean artifactoryChecked,
-                                  boolean autoDeploy,
-                                  Long pollingTimeoutSec,
-                                  Long pollingFreqSec,
-                                  String includes,
-                                  String excludes,
-                                  String appspecFilePath,
-                                  String description,
-                                  String artifactType,
-                                  String repositorySettingId,
-                                  String objectPrefixAliyun,
-                                  String objectPrefixAWS,
-                                  String path,
-                                  String nexusGroupId,
-                                  String nexusArtifactId,
-                                  String nexusArtifactVersion) {
+    public F2CCodeDeploySouthPublisher(String f2cEndpoint,
+                                       String f2cAccessKey,
+                                       String f2cSecretKey,
+                                       String applicationId,
+                                       String applicationRepositoryId,
+                                       String clusterId,
+                                       String clusterRoleId,
+                                       String workspaceId,
+                                       String applicationSettingId,
+                                       String cloudServerId,
+                                       String deployPolicy,
+                                       String applicationVersionName,
+                                       boolean waitForCompletion,
+                                       boolean nexusChecked,
+                                       boolean ossChecked,
+                                       boolean s3Checked,
+                                       boolean artifactoryChecked,
+                                       boolean autoDeploy,
+                                       Long pollingTimeoutSec,
+                                       Long pollingFreqSec,
+                                       String includes,
+                                       String excludes,
+                                       String appspecFilePath,
+                                       String description,
+                                       String artifactType,
+                                       String repositorySettingId,
+                                       String objectPrefixAliyun,
+                                       String objectPrefixAWS,
+                                       String path,
+                                       String nexusGroupId,
+                                       String nexusArtifactId,
+                                       String nexusArtifactVersion) {
         this.f2cEndpoint = f2cEndpoint;
         this.f2cAccessKey = f2cAccessKey;
         this.artifactType = StringUtils.isBlank(artifactType) ? ArtifactType.NEXUS : artifactType;
@@ -141,30 +141,59 @@ public class F2CCodeDeployPublisher extends Publisher {
         this.s3Checked = artifactType.equals(ArtifactType.S3) ? true : false;
         ;
 
+    }
 
+    @Override
+    public void perform(@Nonnull Run<?, ?> run, @Nonnull FilePath filePath, @Nonnull Launcher launcher, @Nonnull TaskListener taskListener) throws InterruptedException, IOException {
+        this.logger = taskListener.getLogger();
+        int builtNumber = run.getNumber();
+        log(" builtNumber = " + builtNumber);
+        String projectName = run.getDisplayName();
+        log(" projectName = " + projectName);
+        final boolean buildFailed = run.getResult() == Result.FAILURE;
+        log(" buildFailed = " + buildFailed);
+
+        RunWrapper wrapper = new RunWrapper(run, true);
+        log("getProjectName = " + wrapper.getProjectName());
+        log("filePath = " + filePath);
+        log("filePath name  = " + filePath.getName());
+
+        execute(run, taskListener, wrapper.getProjectName(), filePath);
     }
 
     @Override
     public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) {
         this.logger = listener.getLogger();
-
         int builtNumber = build.getNumber();
-        String projectName = build.getProject().getName();
-
+        log(" builtNumber = " + builtNumber);
+        String projectName = build.getDisplayName();
+        log(" projectName = " + projectName);
         final boolean buildFailed = build.getResult() == Result.FAILURE;
+        log(" buildFailed = " + buildFailed);
+        log(" getProjectName = " + build.getProject().getName());
+        log("filePath = " + build.getWorkspace());
+        log("filePath name  = " + build.getWorkspace().getName());
+
+        return execute(build, listener, build.getProject().getName(), build.getWorkspace());
+    }
+
+    private boolean execute(Run<?, ?> build, TaskListener listener, String projectName, FilePath workspace) {
+        this.logger = listener.getLogger();
+        int builtNumber = build.getNumber();
+        final boolean buildFailed = build.getResult() == Result.FAILURE;
+
         if (buildFailed) {
             log("Skipping CodeDeploy publisher as build failed");
             return true;
         }
         final Fit2cloudClient fit2cloudClient = new Fit2cloudClient(this.f2cAccessKey, this.f2cSecretKey, this.f2cEndpoint);
 
-
         log("开始校验参数...");
         try {
             boolean findWorkspace = false;
             List<Workspace> workspaces = fit2cloudClient.getWorkspace();
-            for (Workspace workspace : workspaces) {
-                if (workspace.getId().equals(this.workspaceId)) {
+            for (Workspace s : workspaces) {
+                if (s.getId().equals(this.workspaceId)) {
                     findWorkspace = true;
                 }
             }
@@ -183,7 +212,6 @@ public class F2CCodeDeployPublisher extends Publisher {
                 throw new CodeDeployException("应用不存在！");
             }
 
-
             if (autoDeploy) {
                 boolean findCluster = false;
                 List<ClusterDTO> clusters = fit2cloudClient.getClusters(this.workspaceId);
@@ -195,7 +223,6 @@ public class F2CCodeDeployPublisher extends Publisher {
                 if (!findCluster) {
                     throw new CodeDeployException("集群不存在! ");
                 }
-
 
                 List<ClusterRole> clusterRoles = fit2cloudClient.getClusterRoles(this.workspaceId, this.clusterId);
 
@@ -236,7 +263,6 @@ public class F2CCodeDeployPublisher extends Publisher {
             log(e.getMessage());
             return false;
         }
-
 
         // 查询仓库
         ApplicationRepository applicationRepository = null;
@@ -281,9 +307,6 @@ public class F2CCodeDeployPublisher extends Publisher {
             return false;
         }
 
-
-        FilePath workspace = build.getWorkspace();
-
         File zipFile = null;
         String zipFileName = null;
         String newAddress = null;
@@ -293,7 +316,6 @@ public class F2CCodeDeployPublisher extends Publisher {
             String excludesNew = Utils.replaceTokens(build, listener, this.excludes);
             String appspecFilePathNew = Utils.replaceTokens(build, listener, this.appspecFilePath);
             zipFile = zipFile(zipFileName, workspace, includesNew, excludesNew, appspecFilePathNew);
-
 
             switch (artifactType) {
                 case ArtifactType.OSS:
@@ -314,7 +336,7 @@ public class F2CCodeDeployPublisher extends Publisher {
                         expVP = expVP.trim() + Utils.FWD_SLASH;
                     }
                     try {
-                        int filesUploaded = AliyunOSSClient.upload(build, listener,
+                        int filesUploaded = AliyunOSSClient.upload(build, workspace, listener,
                                 applicationRepository.getAccessId(),
                                 applicationRepository.getAccessPassword(),
                                 ".aliyuncs.com",
@@ -396,7 +418,7 @@ public class F2CCodeDeployPublisher extends Publisher {
                         expVPAws = expVPAws.trim() + Utils.FWD_SLASH;
                     }
                     try {
-                        AWSS3Client.upload(build, listener,
+                        AWSS3Client.upload(build, workspace, listener,
                                 applicationRepository.getAccessId(),
                                 applicationRepository.getAccessPassword(),
                                 null,
@@ -421,12 +443,10 @@ public class F2CCodeDeployPublisher extends Publisher {
                     return false;
             }
 
-
         } catch (Exception e) {
             log("生成ZIP包失败: " + e.getMessage());
             return false;
         }
-
 
         ApplicationVersion appVersion = null;
         try {
@@ -493,7 +513,6 @@ public class F2CCodeDeployPublisher extends Publisher {
             return false;
         }
 
-
         return true;
     }
 
@@ -532,7 +551,6 @@ public class F2CCodeDeployPublisher extends Publisher {
         return zipFile;
     }
 
-
     @Override
     public DescriptorImpl getDescriptor() {
 
@@ -543,6 +561,7 @@ public class F2CCodeDeployPublisher extends Publisher {
         return BuildStepMonitor.STEP;
     }
 
+    @Symbol("fit2cloud")
     @Extension // This indicates to Jenkins that this is an implementation of an extension point.
     public static final class DescriptorImpl extends BuildStepDescriptor<Publisher> {
         public FormValidation doCheckAccount(
@@ -566,7 +585,6 @@ public class F2CCodeDeployPublisher extends Publisher {
             }
             return FormValidation.ok("验证FIT2CLOUD帐号成功！");
         }
-
 
         public ListBoxModel doFillWorkspaceIdItems(@QueryParameter String f2cAccessKey,
                                                    @QueryParameter String f2cSecretKey,
@@ -654,7 +672,6 @@ public class F2CCodeDeployPublisher extends Publisher {
                             }
                         }
 
-
                         assert repository != null;
                         items.add(envName + "---" + repository.getType(), String.valueOf(c.getId()));
                     }
@@ -665,7 +682,6 @@ public class F2CCodeDeployPublisher extends Publisher {
             }
             return items;
         }
-
 
         public ListBoxModel doFillClusterIdItems(@QueryParameter String f2cAccessKey,
                                                  @QueryParameter String f2cSecretKey,
@@ -777,13 +793,12 @@ public class F2CCodeDeployPublisher extends Publisher {
             return super.configure(req, formData);
         }
 
-
         /**
          * In order to load the persisted global configuration, you have to
          * call load() in the constructor.
          */
         public DescriptorImpl() {
-            super(F2CCodeDeployPublisher.class);
+            super(F2CCodeDeploySouthPublisher.class);
             load();
         }
 
@@ -796,9 +811,8 @@ public class F2CCodeDeployPublisher extends Publisher {
          * This human readable name is used in the configuration screen.
          */
         public String getDisplayName() {
-            return "FIT2CLOUD 代码部署";
+            return "FIT2CLOUD 代码部署(Pipeline)";
         }
-
 
     }
 
@@ -813,7 +827,6 @@ public class F2CCodeDeployPublisher extends Publisher {
         }
         return applicationSetting;
     }
-
 
     public String getF2cEndpoint() {
         return f2cEndpoint;
@@ -935,5 +948,15 @@ public class F2CCodeDeployPublisher extends Publisher {
         return path;
     }
 
+    public String getNexusGroupId() {
+        return nexusGroupId;
+    }
 
+    public String getNexusArtifactId() {
+        return nexusArtifactId;
+    }
+
+    public String getNexusArtifactVersion() {
+        return nexusArtifactVersion;
+    }
 }

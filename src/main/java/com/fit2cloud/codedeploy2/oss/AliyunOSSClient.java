@@ -7,6 +7,8 @@ import com.fit2cloud.codedeploy2.Utils;
 import hudson.FilePath;
 import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
+import hudson.model.Run;
+import hudson.model.TaskListener;
 import org.apache.commons.lang.time.DurationFormatUtils;
 
 import java.io.IOException;
@@ -32,7 +34,6 @@ public class AliyunOSSClient {
         return true;
     }
 
-
     public static boolean validateOSSBucket(String aliyunAccessKey,
                                             String aliyunSecretKey, String bucketName) throws CodeDeployException {
         try {
@@ -44,7 +45,7 @@ public class AliyunOSSClient {
         return true;
     }
 
-    public static int upload(AbstractBuild<?, ?> build, BuildListener listener,
+    public static int upload(Run<?, ?> build, FilePath workspacePath, TaskListener listener,
                              final String aliyunAccessKey, final String aliyunSecretKey, final String aliyunEndPointSuffix, String bucketName, String expFP, String expVP) throws CodeDeployException {
         OSSClient client = new OSSClient(aliyunAccessKey, aliyunSecretKey);
         String location = client.getBucketLocation(bucketName);
@@ -52,7 +53,7 @@ public class AliyunOSSClient {
         client = new OSSClient(endpoint, aliyunAccessKey, aliyunSecretKey);
         int filesUploaded = 0; // Counter to track no. of files that are uploaded
         try {
-            FilePath workspacePath = build.getWorkspace();
+//            FilePath workspacePath = build.getWorkspace();
             if (workspacePath == null) {
                 listener.getLogger().println("工作空间中没有任何文件.");
                 return filesUploaded;
@@ -74,7 +75,7 @@ public class AliyunOSSClient {
                             if (Utils.isNullOrEmpty(embeddedVP)) {
                                 embeddedVP = null;
                             }
-                            if (embeddedVP != null	&& !embeddedVP.endsWith(Utils.FWD_SLASH)) {
+                            if (embeddedVP != null && !embeddedVP.endsWith(Utils.FWD_SLASH)) {
                                 embeddedVP = embeddedVP + Utils.FWD_SLASH;
                             }
                         }
@@ -127,8 +128,8 @@ public class AliyunOSSClient {
                             }
                         }
                         long endTime = System.currentTimeMillis();
-                        listener.getLogger().println("Uploaded object ["+ key + "] in " + getTime(endTime - startTime));
-                        listener.getLogger().println("版本下载地址:"+"http://"+bucketName+"."+location+aliyunEndPointSuffix+"/"+key);
+                        listener.getLogger().println("Uploaded object [" + key + "] in " + getTime(endTime - startTime));
+                        listener.getLogger().println("版本下载地址:" + "http://" + bucketName + "." + location + aliyunEndPointSuffix + "/" + key);
                         filesUploaded++;
                     }
                 }
@@ -144,16 +145,15 @@ public class AliyunOSSClient {
         return DurationFormatUtils.formatDuration(timeInMills, "HH:mm:ss.S") + " (HH:mm:ss.S)";
     }
 
-
     // https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Complete_list_of_MIME_types
     // support the common web file types for now
     private static final String[] COMMON_CONTENT_TYPES = {
-            ".js", 		"application/js",
-            ".json", 	"application/json",
-            ".svg", 	"image/svg+xml",
-            ".woff", 	"application/x-font-woff",
-            ".woff2", 	"application/x-font-woff",
-            ".ttf", 	"application/x-font-ttf"
+            ".js", "application/js",
+            ".json", "application/json",
+            ".svg", "image/svg+xml",
+            ".woff", "application/x-font-woff",
+            ".woff2", "application/x-font-woff",
+            ".ttf", "application/x-font-ttf"
     };
 
     // http://www.rgagnon.com/javadetails/java-0487.html
