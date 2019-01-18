@@ -47,6 +47,8 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
     private final String clusterRoleId;
     private final String cloudServerId;
     private final String deployPolicy;
+    private final String deploymentLevel;
+    private final Integer backupQuantity;
     private final String applicationVersionName;
     private final boolean autoDeploy;
     private final String includes;
@@ -86,6 +88,8 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
                                        String applicationSettingId,
                                        String cloudServerId,
                                        String deployPolicy,
+                                       String deploymentLevel,
+                                       Integer backupQuantity,
                                        String applicationVersionName,
                                        boolean waitForCompletion,
                                        boolean nexusChecked,
@@ -107,6 +111,7 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
                                        String nexusGroupId,
                                        String nexusArtifactId,
                                        String nexusArtifactVersion) {
+        System.out.println(backupQuantity);
         this.f2cEndpoint = f2cEndpoint;
         this.f2cAccessKey = f2cAccessKey;
         this.artifactType = StringUtils.isBlank(artifactType) ? ArtifactType.NEXUS : artifactType;
@@ -121,6 +126,8 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
         this.applicationRepositoryId = applicationRepositoryId;
         this.applicationVersionName = applicationVersionName;
         this.deployPolicy = deployPolicy;
+        this.deploymentLevel = deploymentLevel;
+        this.backupQuantity = backupQuantity == null ? 0 : backupQuantity;
         this.autoDeploy = autoDeploy;
         this.includes = includes;
         this.excludes = excludes;
@@ -135,45 +142,20 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
         this.nexusGroupId = nexusGroupId;
         this.nexusArtifactId = nexusArtifactId;
         this.nexusArtifactVersion = nexusArtifactVersion;
-        this.nexusChecked = artifactType.equals(ArtifactType.NEXUS) ? true : false;
-        this.artifactoryChecked = artifactType.equals(ArtifactType.ARTIFACTORY) ? true : false;
-        this.ossChecked = artifactType.equals(ArtifactType.OSS) ? true : false;
-        this.s3Checked = artifactType.equals(ArtifactType.S3) ? true : false;
-        ;
-
+        this.nexusChecked = ArtifactType.NEXUS.equals(artifactType) ? true : false;
+        this.artifactoryChecked = ArtifactType.ARTIFACTORY.equals(artifactType) ? true : false;
+        this.ossChecked = ArtifactType.OSS.equals(artifactType) ? true : false;
+        this.s3Checked = ArtifactType.S3.equals(artifactType) ? true : false;
     }
 
     @Override
     public void perform(@Nonnull Run<?, ?> run, @Nonnull FilePath filePath, @Nonnull Launcher launcher, @Nonnull TaskListener taskListener) throws InterruptedException, IOException {
-        this.logger = taskListener.getLogger();
-        int builtNumber = run.getNumber();
-        log(" builtNumber = " + builtNumber);
-        String projectName = run.getDisplayName();
-        log(" projectName = " + projectName);
-        final boolean buildFailed = run.getResult() == Result.FAILURE;
-        log(" buildFailed = " + buildFailed);
-
         RunWrapper wrapper = new RunWrapper(run, true);
-        log("getProjectName = " + wrapper.getProjectName());
-        log("filePath = " + filePath);
-        log("filePath name  = " + filePath.getName());
-
         execute(run, taskListener, wrapper.getProjectName(), filePath);
     }
 
     @Override
     public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) {
-        this.logger = listener.getLogger();
-        int builtNumber = build.getNumber();
-        log(" builtNumber = " + builtNumber);
-        String projectName = build.getDisplayName();
-        log(" projectName = " + projectName);
-        final boolean buildFailed = build.getResult() == Result.FAILURE;
-        log(" buildFailed = " + buildFailed);
-        log(" getProjectName = " + build.getProject().getName());
-        log("filePath = " + build.getWorkspace());
-        log("filePath name  = " + build.getWorkspace().getName());
-
         return execute(build, listener, build.getProject().getName(), build.getWorkspace());
     }
 
@@ -189,6 +171,10 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
         final Fit2cloudClient fit2cloudClient = new Fit2cloudClient(this.f2cAccessKey, this.f2cSecretKey, this.f2cEndpoint);
 
         log("开始校验参数...");
+        if (StringUtils.isBlank(deploymentLevel)) {
+            log("部署级别不可为空");
+        }
+
         try {
             boolean findWorkspace = false;
             List<Workspace> workspaces = fit2cloudClient.getWorkspace();
@@ -476,6 +462,8 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
                 applicationDeployment.setCloudServerId(this.cloudServerId);
                 applicationDeployment.setApplicationVersionId(appVersion.getId());
                 applicationDeployment.setPolicy(this.deployPolicy);
+                applicationDeployment.setDeploymentLevel(deploymentLevel);
+                applicationDeployment.setBackupQuantity(backupQuantity);
                 applicationDeployment.setDescription("Jenkins 触发");
                 applicationDeploy = fit2cloudClient.createApplicationDeployment(applicationDeployment, this.workspaceId);
             }
@@ -779,6 +767,21 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
         }
 
         public ListBoxModel doFillDeployPolicyItems() {
+            ListBoxModel items = new ListBoxModel();
+            items.add("全部同时部署", "all");
+            items.add("半数分批部署", "harf");
+            items.add("单台依次部署", "sigle");
+            return items;
+        }
+
+        public ListBoxModel doFillDeploymentLevelItems() {
+            ListBoxModel items = new ListBoxModel();
+            items.add("全量部署", "all");
+            items.add("增量部署", "");
+            return items;
+        }
+
+        public ListBoxModel doFillBackupQuantityItems() {
             ListBoxModel items = new ListBoxModel();
             items.add("全部同时部署", "all");
             items.add("半数分批部署", "harf");
