@@ -35,7 +35,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuildStep {
-    private static final String LOG_PREFIX = "[FIT2CLOUD 代码部署]";
+    private static final String LOG_PREFIX = "[FIT2CLOUD 代码部署 V2.0]";
     private final String f2cEndpoint;
     private final String f2cAccessKey;
     private final String f2cSecretKey;
@@ -811,7 +811,7 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
          * This human readable name is used in the configuration screen.
          */
         public String getDisplayName() {
-            return "FIT2CLOUD 代码部署(Pipeline)";
+            return "FIT2CLOUD 代码部署 V2.0";
         }
 
     }
