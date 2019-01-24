@@ -61,6 +61,9 @@ public class F2CCodeDeployPublisher extends Publisher {
     private final boolean ossChecked;
     private final boolean s3Checked;
     private final boolean artifactoryChecked;
+
+
+
     private final String path;
     //上传到阿里云参数
     private final String objectPrefixAliyun;
@@ -933,6 +936,17 @@ public class F2CCodeDeployPublisher extends Publisher {
 
     public String getPath() {
         return path;
+    }
+    public String getNexusGroupId() {
+        return nexusGroupId;
+    }
+
+    public String getNexusArtifactId() {
+        return nexusArtifactId;
+    }
+
+    public String getNexusArtifactVersion() {
+        return nexusArtifactVersion;
     }
 
 
