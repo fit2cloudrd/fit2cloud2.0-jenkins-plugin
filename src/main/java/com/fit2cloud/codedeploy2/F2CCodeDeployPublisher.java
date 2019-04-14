@@ -525,7 +525,7 @@ public class F2CCodeDeployPublisher extends Publisher {
         FileOutputStream outputStream = new FileOutputStream(zipFile);
         try {
             String allIncludes = includesNew + ",appspec.yml";
-            sourceDirectory.tar(
+            sourceDirectory.zip(
                     outputStream,
                     new DirScanner.Glob(allIncludes, excludesNew)
             );
