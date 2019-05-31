@@ -9,6 +9,7 @@ import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
 import org.apache.commons.lang.time.DurationFormatUtils;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.FileNameMap;
@@ -45,7 +46,7 @@ public class AliyunOSSClient {
     }
 
     public static int upload(AbstractBuild<?, ?> build, BuildListener listener,
-                             final String aliyunAccessKey, final String aliyunSecretKey, final String aliyunEndPointSuffix, String bucketName, String expFP, String expVP) throws CodeDeployException {
+                             final String aliyunAccessKey, final String aliyunSecretKey, final String aliyunEndPointSuffix, String bucketName, String expFP, String expVP, File zipFile) throws CodeDeployException {
         OSSClient client = new OSSClient(aliyunAccessKey, aliyunSecretKey);
         String location = client.getBucketLocation(bucketName);
         String endpoint = "http://" + location + aliyunEndPointSuffix;
@@ -85,8 +86,7 @@ public class AliyunOSSClient {
                 if (Utils.isNullOrEmpty(fileName)) {
                     return filesUploaded;
                 }
-
-                FilePath fp = new FilePath(workspacePath, fileName);
+                FilePath fp = new FilePath(zipFile);
 
                 if (fp.exists() && !fp.isDirectory()) {
                     paths = new FilePath[1];
@@ -176,4 +176,5 @@ public class AliyunOSSClient {
         }
         return type;
     }
+
 }

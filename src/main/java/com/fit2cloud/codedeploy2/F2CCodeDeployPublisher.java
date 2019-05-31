@@ -286,7 +286,6 @@ public class F2CCodeDeployPublisher extends Publisher {
 
 
         FilePath workspace = build.getWorkspace();
-
         File zipFile = null;
         String zipFileName = null;
         String newAddress = null;
@@ -295,6 +294,7 @@ public class F2CCodeDeployPublisher extends Publisher {
             String includesNew = Utils.replaceTokens(build, listener, this.includes);
             String excludesNew = Utils.replaceTokens(build, listener, this.excludes);
             String appspecFilePathNew = Utils.replaceTokens(build, listener, this.appspecFilePath);
+
             zipFile = zipFile(zipFileName, workspace, includesNew, excludesNew, appspecFilePathNew);
 
 
@@ -321,7 +321,7 @@ public class F2CCodeDeployPublisher extends Publisher {
                                 applicationRepository.getAccessId(),
                                 applicationRepository.getAccessPassword(),
                                 ".aliyuncs.com",
-                                applicationRepository.getRepository().replace("bucket:", ""), expFP, expVP);
+                                applicationRepository.getRepository().replace("bucket:", ""), expFP, expVP, zipFile);
                         if (filesUploaded > 0) {
                             log("上传Artifacts到阿里云OSS成功!");
                         }
@@ -403,7 +403,7 @@ public class F2CCodeDeployPublisher extends Publisher {
                                 applicationRepository.getAccessId(),
                                 applicationRepository.getAccessPassword(),
                                 null,
-                                applicationRepository.getRepository(), expFPAws, expVPAws);
+                                applicationRepository.getRepository(), expFPAws, expVPAws, zipFile);
                         log("上传Artifacts到亚马逊AWS成功!");
                     } catch (Exception e) {
                         log("上传Artifact到亚马逊AWS失败，错误消息如下:");
@@ -514,6 +514,7 @@ public class F2CCodeDeployPublisher extends Publisher {
         } else {
             throw new IllegalArgumentException("没有找到对应的appspec.yml文件！");
         }
+
         File zipFile = new File("/tmp/" + zipFileName);
         final boolean fileCreated = zipFile.createNewFile();
         if (!fileCreated) {
@@ -521,7 +522,6 @@ public class F2CCodeDeployPublisher extends Publisher {
         }
 
         log("生成Zip文件 : " + zipFile.getAbsolutePath());
-
         FileOutputStream outputStream = new FileOutputStream(zipFile);
         try {
             String allIncludes = includesNew + ",appspec.yml";

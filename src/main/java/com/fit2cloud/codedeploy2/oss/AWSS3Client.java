@@ -14,6 +14,7 @@ import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
 import org.apache.commons.lang.time.DurationFormatUtils;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Date;
@@ -62,7 +63,7 @@ public class AWSS3Client {
     }
 
     public static int upload(AbstractBuild<?, ?> build, BuildListener listener,
-                             final String awsAccessKey, final String awsSecretKey, S3Proxy proxy, String bucketName, String expFP, String expVP) throws CodeDeployException {
+                             final String awsAccessKey, final String awsSecretKey, S3Proxy proxy, String bucketName, String expFP, String expVP, File zipFile) throws CodeDeployException {
         AmazonS3Client client = null;
         try {
             client = new AmazonS3Client(new BasicAWSCredentials(awsAccessKey, awsSecretKey), getProxyConfiguration(proxy));
@@ -112,7 +113,8 @@ public class AWSS3Client {
                     return filesUploaded;
                 }
 
-                FilePath fp = new FilePath(workspacePath, fileName);
+//                FilePath fp = new FilePath(workspacePath, fileName);
+                FilePath fp = new FilePath(zipFile);
 
                 if (fp.exists() && !fp.isDirectory()) {
                     paths = new FilePath[1];
