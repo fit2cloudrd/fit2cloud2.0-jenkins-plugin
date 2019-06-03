@@ -428,6 +428,14 @@ public class F2CCodeDeployPublisher extends Publisher {
         } catch (Exception e) {
             log("生成ZIP包失败: " + e.getMessage());
             return false;
+        } finally {
+            if(zipFile != null && zipFile.exists()){
+                try {
+                    log("删除 Zip 文件 " + zipFile.getAbsolutePath());
+                    zipFile.delete();
+                }catch (Exception e){
+                }
+            }
         }
 
 
