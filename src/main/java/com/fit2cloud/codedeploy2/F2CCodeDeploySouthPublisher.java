@@ -111,7 +111,6 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
                                        String nexusGroupId,
                                        String nexusArtifactId,
                                        String nexusArtifactVersion) {
-        System.out.println(backupQuantity);
         this.f2cEndpoint = f2cEndpoint;
         this.f2cAccessKey = f2cAccessKey;
         this.artifactType = StringUtils.isBlank(artifactType) ? ArtifactType.NEXUS : artifactType;
@@ -171,9 +170,6 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
         final Fit2cloudClient fit2cloudClient = new Fit2cloudClient(this.f2cAccessKey, this.f2cSecretKey, this.f2cEndpoint);
 
         log("开始校验参数...");
-        if (StringUtils.isBlank(deploymentLevel)) {
-            log("部署级别不可为空");
-        }
 
         try {
             boolean findWorkspace = false;
@@ -242,6 +238,10 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
                     if (!findCLoudServer) {
                         throw new CodeDeployException("主机组不存在! ");
                     }
+                }
+
+                if (StringUtils.isBlank(deploymentLevel)) {
+                    log("部署级别不可为空");
                 }
 
             }
@@ -961,5 +961,13 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
 
     public String getNexusArtifactVersion() {
         return nexusArtifactVersion;
+    }
+
+    public String getDeploymentLevel() {
+        return deploymentLevel;
+    }
+
+    public Integer getBackupQuantity() {
+        return backupQuantity;
     }
 }
