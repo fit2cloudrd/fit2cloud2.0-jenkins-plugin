@@ -65,6 +65,9 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
     private final boolean ossChecked;
     private final boolean s3Checked;
     private final boolean artifactoryChecked;
+
+
+
     private final String path;
     //上传到阿里云参数
     private final String objectPrefixAliyun;
@@ -141,11 +144,14 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
         this.nexusGroupId = nexusGroupId;
         this.nexusArtifactId = nexusArtifactId;
         this.nexusArtifactVersion = nexusArtifactVersion;
-        this.nexusChecked = ArtifactType.NEXUS.equals(artifactType) ? true : false;
-        this.artifactoryChecked = ArtifactType.ARTIFACTORY.equals(artifactType) ? true : false;
-        this.ossChecked = ArtifactType.OSS.equals(artifactType) ? true : false;
-        this.s3Checked = ArtifactType.S3.equals(artifactType) ? true : false;
+        this.nexusChecked = artifactType.equals(ArtifactType.NEXUS) ? true : false;
+        this.artifactoryChecked = artifactType.equals(ArtifactType.ARTIFACTORY) ? true : false;
+        this.ossChecked = artifactType.equals(ArtifactType.OSS) ? true : false;
+        this.s3Checked = artifactType.equals(ArtifactType.S3) ? true : false;
+        ;
     }
+
+
 
     @Override
     public void perform(@Nonnull Run<?, ?> run, @Nonnull FilePath filePath, @Nonnull Launcher launcher, @Nonnull TaskListener taskListener) throws InterruptedException, IOException {
@@ -161,21 +167,21 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
     private boolean execute(Run<?, ?> build, TaskListener listener, String projectName, FilePath workspace) {
         this.logger = listener.getLogger();
         int builtNumber = build.getNumber();
-        final boolean buildFailed = build.getResult() == Result.FAILURE;
 
+        final boolean buildFailed = build.getResult() == Result.FAILURE;
         if (buildFailed) {
             log("Skipping CodeDeploy publisher as build failed");
             return true;
         }
         final Fit2cloudClient fit2cloudClient = new Fit2cloudClient(this.f2cAccessKey, this.f2cSecretKey, this.f2cEndpoint);
 
-        log("开始校验参数...");
 
+        log("开始校验参数...");
         try {
             boolean findWorkspace = false;
             List<Workspace> workspaces = fit2cloudClient.getWorkspace();
-            for (Workspace s : workspaces) {
-                if (s.getId().equals(this.workspaceId)) {
+            for (Workspace wk : workspaces) {
+                if (wk.getId().equals(this.workspaceId)) {
                     findWorkspace = true;
                 }
             }
@@ -194,6 +200,7 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
                 throw new CodeDeployException("应用不存在！");
             }
 
+
             if (autoDeploy) {
                 boolean findCluster = false;
                 List<ClusterDTO> clusters = fit2cloudClient.getClusters(this.workspaceId);
@@ -205,6 +212,7 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
                 if (!findCluster) {
                     throw new CodeDeployException("集群不存在! ");
                 }
+
 
                 List<ClusterRole> clusterRoles = fit2cloudClient.getClusterRoles(this.workspaceId, this.clusterId);
 
@@ -250,6 +258,7 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
             return false;
         }
 
+
         // 查询仓库
         ApplicationRepository applicationRepository = null;
         ApplicationRepositorySetting repSetting = null;
@@ -293,6 +302,8 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
             return false;
         }
 
+
+        //FilePath workspace = build.getWorkspace();
         File zipFile = null;
         String zipFileName = null;
         String newAddress = null;
@@ -301,7 +312,9 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
             String includesNew = Utils.replaceTokens(build, listener, this.includes);
             String excludesNew = Utils.replaceTokens(build, listener, this.excludes);
             String appspecFilePathNew = Utils.replaceTokens(build, listener, this.appspecFilePath);
+
             zipFile = zipFile(zipFileName, workspace, includesNew, excludesNew, appspecFilePathNew);
+
 
             switch (artifactType) {
                 case ArtifactType.OSS:
@@ -326,7 +339,7 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
                                 applicationRepository.getAccessId(),
                                 applicationRepository.getAccessPassword(),
                                 ".aliyuncs.com",
-                                applicationRepository.getRepository().replace("bucket:", ""), expFP, expVP);
+                                applicationRepository.getRepository().replace("bucket:", ""), expFP, expVP, zipFile);
                         if (filesUploaded > 0) {
                             log("上传Artifacts到阿里云OSS成功!");
                         }
@@ -408,7 +421,7 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
                                 applicationRepository.getAccessId(),
                                 applicationRepository.getAccessPassword(),
                                 null,
-                                applicationRepository.getRepository(), expFPAws, expVPAws);
+                                applicationRepository.getRepository(), expFPAws, expVPAws, zipFile);
                         log("上传Artifacts到亚马逊AWS成功!");
                     } catch (Exception e) {
                         log("上传Artifact到亚马逊AWS失败，错误消息如下:");
@@ -429,10 +442,20 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
                     return false;
             }
 
+
         } catch (Exception e) {
             log("生成ZIP包失败: " + e.getMessage());
             return false;
+        } finally {
+            if(zipFile != null && zipFile.exists()){
+                try {
+                    log("删除 Zip 文件 " + zipFile.getAbsolutePath());
+                    zipFile.delete();
+                }catch (Exception e){
+                }
+            }
         }
+
 
         ApplicationVersion appVersion = null;
         try {
@@ -501,6 +524,7 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
             return false;
         }
 
+
         return true;
     }
 
@@ -518,6 +542,7 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
         } else {
             throw new IllegalArgumentException("没有找到对应的appspec.yml文件！");
         }
+
         File zipFile = new File("/tmp/" + zipFileName);
         final boolean fileCreated = zipFile.createNewFile();
         if (!fileCreated) {
@@ -525,7 +550,6 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
         }
 
         log("生成Zip文件 : " + zipFile.getAbsolutePath());
-
         FileOutputStream outputStream = new FileOutputStream(zipFile);
         try {
             String allIncludes = includesNew + ",appspec.yml";
@@ -539,12 +563,14 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
         return zipFile;
     }
 
+
     @Override
     public DescriptorImpl getDescriptor() {
 
         return (DescriptorImpl) super.getDescriptor();
     }
 
+    @Override
     public BuildStepMonitor getRequiredMonitorService() {
         return BuildStepMonitor.STEP;
     }
@@ -573,6 +599,7 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
             }
             return FormValidation.ok("验证FIT2CLOUD帐号成功！");
         }
+
 
         public ListBoxModel doFillWorkspaceIdItems(@QueryParameter String f2cAccessKey,
                                                    @QueryParameter String f2cSecretKey,
@@ -660,6 +687,7 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
                             }
                         }
 
+
                         assert repository != null;
                         items.add(envName + "---" + repository.getType(), String.valueOf(c.getId()));
                     }
@@ -670,6 +698,7 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
             }
             return items;
         }
+
 
         public ListBoxModel doFillClusterIdItems(@QueryParameter String f2cAccessKey,
                                                  @QueryParameter String f2cSecretKey,
@@ -805,6 +834,7 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
             load();
         }
 
+        @Override
         public boolean isApplicable(Class<? extends AbstractProject> aClass) {
             // Indicates that this builder can be used with all kinds of project types
             return true;
@@ -813,9 +843,11 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
         /**
          * This human readable name is used in the configuration screen.
          */
+        @Override
         public String getDisplayName() {
             return "FIT2CLOUD 代码部署 V2.0";
         }
+
 
     }
 
@@ -830,6 +862,7 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
         }
         return applicationSetting;
     }
+
 
     public String getF2cEndpoint() {
         return f2cEndpoint;
@@ -950,7 +983,6 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
     public String getPath() {
         return path;
     }
-
     public String getNexusGroupId() {
         return nexusGroupId;
     }

@@ -10,12 +10,11 @@ import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.fit2cloud.codedeploy2.CodeDeployException;
 import com.fit2cloud.codedeploy2.Utils;
 import hudson.FilePath;
-import hudson.model.AbstractBuild;
-import hudson.model.BuildListener;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import org.apache.commons.lang.time.DurationFormatUtils;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Date;
@@ -63,8 +62,8 @@ public class AWSS3Client {
         return true;
     }
 
-    public static int upload(Run<?, ?> build,FilePath workspacePath, TaskListener listener,
-                             final String awsAccessKey, final String awsSecretKey, S3Proxy proxy, String bucketName, String expFP, String expVP) throws CodeDeployException {
+    public static int upload(Run<?, ?> build, FilePath workspacePath, TaskListener listener,
+                             final String awsAccessKey, final String awsSecretKey, S3Proxy proxy, String bucketName, String expFP, String expVP, File zipFile) throws CodeDeployException {
         AmazonS3Client client = null;
         try {
             client = new AmazonS3Client(new BasicAWSCredentials(awsAccessKey, awsSecretKey), getProxyConfiguration(proxy));
@@ -81,7 +80,7 @@ public class AWSS3Client {
 
         int filesUploaded = 0; // Counter to track no. of files that are uploaded
         try {
-//            FilePath workspacePath = build.getWorkspace();
+            //FilePath workspacePath = build.getWorkspace();
             if (workspacePath == null) {
                 listener.getLogger().println("工作空间中没有任何文件.");
                 return filesUploaded;
@@ -114,7 +113,8 @@ public class AWSS3Client {
                     return filesUploaded;
                 }
 
-                FilePath fp = new FilePath(workspacePath, fileName);
+//                FilePath fp = new FilePath(workspacePath, fileName);
+                FilePath fp = new FilePath(zipFile);
 
                 if (fp.exists() && !fp.isDirectory()) {
                     paths = new FilePath[1];

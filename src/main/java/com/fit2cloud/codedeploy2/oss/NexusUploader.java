@@ -1,22 +1,14 @@
 package com.fit2cloud.codedeploy2.oss;
 
-import org.apache.maven.repository.internal.MavenRepositorySystemUtils;
-import org.eclipse.aether.DefaultRepositorySystemSession;
-import org.eclipse.aether.RepositorySystem;
-import org.eclipse.aether.RepositorySystemSession;
-import org.eclipse.aether.artifact.Artifact;
-import org.eclipse.aether.artifact.DefaultArtifact;
-import org.eclipse.aether.connector.basic.BasicRepositoryConnectorFactory;
-import org.eclipse.aether.deployment.DeployRequest;
-import org.eclipse.aether.impl.DefaultServiceLocator;
-import org.eclipse.aether.repository.Authentication;
-import org.eclipse.aether.repository.LocalRepository;
-import org.eclipse.aether.repository.RemoteRepository;
-import org.eclipse.aether.spi.connector.RepositoryConnectorFactory;
-import org.eclipse.aether.spi.connector.transport.TransporterFactory;
-import org.eclipse.aether.transport.file.FileTransporterFactory;
-import org.eclipse.aether.transport.http.HttpTransporterFactory;
-import org.eclipse.aether.util.repository.AuthenticationBuilder;
+import org.apache.maven.repository.internal.MavenRepositorySystemSession;
+import org.sonatype.aether.RepositorySystem;
+import org.sonatype.aether.RepositorySystemSession;
+import org.sonatype.aether.artifact.Artifact;
+import org.sonatype.aether.deployment.DeployRequest;
+import org.sonatype.aether.repository.Authentication;
+import org.sonatype.aether.repository.LocalRepository;
+import org.sonatype.aether.repository.RemoteRepository;
+import org.sonatype.aether.util.artifact.DefaultArtifact;
 
 import java.io.File;
 
@@ -30,16 +22,17 @@ public class NexusUploader {
 	    artifact = artifact.setFile(uploadFile);
 
 	    // add authentication to connect to remove repository
-	    Authentication authentication = new AuthenticationBuilder().addUsername(userName).addPassword(password).build();
+	    Authentication authentication = new Authentication(userName, password);
 
 	    // creates a remote repo at the given URL to deploy to
-	    RemoteRepository distRepo = new RemoteRepository.Builder("id", "default", targetUrl).setAuthentication(authentication).build();
+		RemoteRepository distRepo = new RemoteRepository("id", "default", targetUrl).setAuthentication(authentication);
 
 	    DeployRequest deployRequest = new DeployRequest();
 	    deployRequest.addArtifact(artifact);
 	    deployRequest.setRepository(distRepo);
 
 	    system.deploy(session, deployRequest);
+
 	    if(!targetUrl.endsWith("/")) {
 	    	targetUrl += "/";
 	    }
@@ -49,17 +42,15 @@ public class NexusUploader {
 	}
 
 	private static RepositorySystem newRepositorySystem() {
-	    DefaultServiceLocator locator = MavenRepositorySystemUtils.newServiceLocator();
-	    locator.addService(RepositoryConnectorFactory.class, BasicRepositoryConnectorFactory.class);
-	    locator.addService(TransporterFactory.class, FileTransporterFactory.class);
-	    locator.addService(TransporterFactory.class, HttpTransporterFactory.class);
-	    return locator.getService(RepositorySystem.class);
+		RepositorySystem system = new RepositorySystemBuilder().build();
+		return system;
 	}
 
 	private static RepositorySystemSession newSession(RepositorySystem system) {
-	    DefaultRepositorySystemSession session = MavenRepositorySystemUtils.newSession();
+		MavenRepositorySystemSession session = new MavenRepositorySystemSession();
 	    LocalRepository localRepo = new LocalRepository("target/local-repo");
-	    session.setLocalRepositoryManager(system.newLocalRepositoryManager(session, localRepo));
+	    session.setLocalRepositoryManager(system.newLocalRepositoryManager(localRepo));
 	    return session;
 	}
+
 }
