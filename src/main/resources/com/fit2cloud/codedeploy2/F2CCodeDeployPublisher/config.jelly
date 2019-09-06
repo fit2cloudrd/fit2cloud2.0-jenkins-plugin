@@ -40,6 +40,17 @@
      	            <f:textbox default="1.0"/>
      	        </f:entry>
      	    </f:radioBlock>
+     	    <f:radioBlock title="上传至 Nexus3" name="artifactType" value="Nexus3" inline="true" checked="${instance.nexus3Checked}">
+                 	        <f:entry title="GroupId" field="nexus3GroupId">
+                 	            <f:textbox default="com.fit2cloud"/>
+                 	        </f:entry>
+                 	        <f:entry title="ArtifactId" field="nexus3ArtifactId">
+                 	            <f:textbox default="test"/>
+                 	        </f:entry>
+                 	        <f:entry title="NexusArtifactVersion" field="nexus3ArtifactVersion">
+                 	            <f:textbox default="1.0"/>
+                 	        </f:entry>
+            </f:radioBlock>
      	    <f:radioBlock title="上传至 Artifactory" name="artifactType" value="Artifactory" inline="true" checked="${instance.artifactoryChecked}">
                  <f:entry title="Path" field="path">
                      <f:textbox />

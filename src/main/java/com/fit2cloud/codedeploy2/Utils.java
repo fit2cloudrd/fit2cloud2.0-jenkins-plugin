@@ -3,11 +3,13 @@ package com.fit2cloud.codedeploy2;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.util.Base64;
 import hudson.Util;
 import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 /**
@@ -60,6 +62,8 @@ public class Utils {
         return newText;
     }
 
-
+    public static String getBasicAuth(String username, String password) {
+        return Base64.encodeAsString((username + ":" + password).getBytes(StandardCharsets.UTF_8));
+    }
 
 }
