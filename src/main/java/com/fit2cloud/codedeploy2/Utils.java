@@ -5,8 +5,9 @@ import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.util.Base64;
 import hudson.Util;
-import hudson.model.AbstractBuild;
+import hudson.model.Run;
 import hudson.model.BuildListener;
+import hudson.model.TaskListener;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -52,8 +53,8 @@ public class Utils {
         }
     }
 
-    public static String replaceTokens(AbstractBuild<?, ?> build,
-                                       BuildListener listener, String text) throws IOException, InterruptedException {
+    public static String replaceTokens(Run<?, ?> build,
+                                       TaskListener listener, String text) throws IOException, InterruptedException {
         String newText = null;
         if (!isNullOrEmpty(text)) {
             Map<String, String> envVars = build.getEnvironment(listener);

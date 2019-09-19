@@ -5,8 +5,8 @@ import com.aliyun.oss.model.ObjectMetadata;
 import com.fit2cloud.codedeploy2.CodeDeployException;
 import com.fit2cloud.codedeploy2.Utils;
 import hudson.FilePath;
-import hudson.model.AbstractBuild;
-import hudson.model.BuildListener;
+import hudson.model.Run;
+import hudson.model.TaskListener;
 import org.apache.commons.lang.time.DurationFormatUtils;
 
 import java.io.File;
@@ -45,7 +45,7 @@ public class AliyunOSSClient {
         return true;
     }
 
-    public static int upload(AbstractBuild<?, ?> build, BuildListener listener,
+    public static int upload(Run<?, ?> build, FilePath workspacePath, TaskListener listener,
                              final String aliyunAccessKey, final String aliyunSecretKey, final String aliyunEndPointSuffix, String bucketName, String expFP, String expVP, File zipFile) throws CodeDeployException {
         OSSClient client = new OSSClient(aliyunAccessKey, aliyunSecretKey);
         String location = client.getBucketLocation(bucketName);
@@ -53,7 +53,7 @@ public class AliyunOSSClient {
         client = new OSSClient(endpoint, aliyunAccessKey, aliyunSecretKey);
         int filesUploaded = 0; // Counter to track no. of files that are uploaded
         try {
-            FilePath workspacePath = build.getWorkspace();
+//            FilePath workspacePath = build.getWorkspace();
             if (workspacePath == null) {
                 listener.getLogger().println("工作空间中没有任何文件.");
                 return filesUploaded;
