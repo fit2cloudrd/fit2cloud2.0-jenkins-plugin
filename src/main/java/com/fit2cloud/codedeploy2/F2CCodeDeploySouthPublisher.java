@@ -603,15 +603,6 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
     @Symbol("fit2cloud")
     @Extension // This indicates to Jenkins that this is an implementation of an extension point.
     public static final class DescriptorImpl extends BuildStepDescriptor<Publisher> {
-        /**
-         * In order to load the persisted global configuration, you have to
-         * call load() in the constructor.
-         */
-        public DescriptorImpl() {
-            super(F2CCodeDeployPublisher.class);
-            load();
-        }
-
         public FormValidation doCheckAccount(
                 @QueryParameter String f2cAccessKey,
                 @QueryParameter String f2cSecretKey,
@@ -633,6 +624,7 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
             }
             return FormValidation.ok("验证FIT2CLOUD帐号成功！");
         }
+
 
         public ListBoxModel doFillWorkspaceIdItems(@QueryParameter String f2cAccessKey,
                                                    @QueryParameter String f2cSecretKey,
@@ -1033,5 +1025,21 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
 
     public Integer getBackupQuantity() {
         return backupQuantity;
+    }
+
+    public String getNexus3GroupId() {
+        return nexus3GroupId;
+    }
+
+    public String getNexus3ArtifactId() {
+        return nexus3ArtifactId;
+    }
+
+    public String getNexus3ArtifactVersion() {
+        return nexus3ArtifactVersion;
+    }
+
+    public boolean isNexus3Checked() {
+        return nexus3Checked;
     }
 }
