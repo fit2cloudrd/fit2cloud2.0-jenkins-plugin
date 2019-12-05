@@ -832,8 +832,8 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
         public ListBoxModel doFillDeployPolicyItems() {
             ListBoxModel items = new ListBoxModel();
             items.add("全部同时部署", "all");
-            items.add("半数分批部署", "harf");
-            items.add("单台依次部署", "sigle");
+            items.add("半数分批部署", "half");
+            items.add("单台依次部署", "single");
             return items;
         }
 
@@ -847,8 +847,8 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
         public ListBoxModel doFillBackupQuantityItems() {
             ListBoxModel items = new ListBoxModel();
             items.add("全部同时部署", "all");
-            items.add("半数分批部署", "harf");
-            items.add("单台依次部署", "sigle");
+            items.add("半数分批部署", "half");
+            items.add("单台依次部署", "single");
             return items;
         }
 
