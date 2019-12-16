@@ -18,7 +18,7 @@ public class NexusUploader {
 	    RepositorySystem system = newRepositorySystem();
 	    RepositorySystemSession session = newSession(system);
 
-	    Artifact artifact = new DefaultArtifact(groupId, artifactId, "", extension, version);
+	    Artifact artifact = new DefaultArtifact(groupId, artifactId, classifier, extension, version);
 	    artifact = artifact.setFile(uploadFile);
 
 	    // add authentication to connect to remove repository
@@ -37,7 +37,7 @@ public class NexusUploader {
 	    	targetUrl += "/";
 	    }
 
-	    String url = targetUrl + groupId.replace(".", "/") + "/"+artifactId+"/"+version+"/"+artifactId+"-"+version+".zip";
+		String url = targetUrl + groupId.replace(".", "/") + "/" + artifactId + "/" + version + "/" + artifactId + "-" + version + "-" + classifier + ".zip";
 	    return url;
 	}
 

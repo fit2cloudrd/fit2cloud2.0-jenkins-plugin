@@ -36,6 +36,7 @@ public class Nexus3Uploader {
                 .addTextBody("maven2.groupId", groupId)
                 .addTextBody("maven2.artifactId", artifactId)
                 .addTextBody("maven2.version", version)
+                .addTextBody("maven2.asset1.classifier",buildNumber)
                 .addBinaryBody("maven2.asset1", fileBody.getInputStream())
                 .addTextBody("maven2.asset1.extension", extension).build();
         post.setEntity(entity);
@@ -43,6 +44,6 @@ public class Nexus3Uploader {
         if (!repoAddr.endsWith("/")) {
             repoAddr += "/";
         }
-        return repoAddr + groupId.replace(".", "/") + "/" + artifactId + "/" + version + "/" + artifactId + "-" + version + ".zip";
+        return repoAddr + groupId.replace(".", "/") + "/" + artifactId + "/" + version + "/" + artifactId + "-" + version + "-" + buildNumber + ".zip";
     }
 }
