@@ -31,6 +31,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -313,7 +315,7 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
             String excludesNew = Utils.replaceTokens(build, listener, this.excludes);
             String appspecFilePathNew = Utils.replaceTokens(build, listener, this.appspecFilePath);
 
-            zipFile = zipFile(zipFileName, workspace, includesNew, excludesNew, appspecFilePathNew);
+            zipFile = zipFileByGlob(zipFileName, workspace, includesNew, excludesNew, appspecFilePathNew);
 
 
             switch (artifactType) {
@@ -563,6 +565,120 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
         return zipFile;
     }
 
+    /**
+     * 使用 Glob 过滤的方式进行 zip 文件生成，原先的方法在生成 zip 文件时不会打包空文件夹，也没有找到能 hook 的地方
+     * 所以这边使用新的思路：先将源文件夹人为过滤一遍，拷贝到临时文件夹下，再打包生成 zip 文件
+     * @param zipFileName 目标压缩文件名
+     * @param sourceDirectory 源文件夹
+     * @param includes 需要包含的文件/文件夹，使用 Glob 规则语法，以 ',' 隔开
+     * @param excludes 需要排除的文件/文件夹，同上
+     * @param appspecFilePath 自定义的 AppSpec 文件位置
+     * @return 打包生成的压缩文件
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    private File zipFileByGlob(String zipFileName, FilePath sourceDirectory, String includes, String excludes, String appspecFilePath) throws IOException, InterruptedException {
+        FilePath appspecFp = new FilePath(sourceDirectory, appspecFilePath);
+
+        log("指定 appspecPath ::::: " + appspecFp.toURI().getPath());
+        if (appspecFp.exists()) {
+            if (!"appspec.yml".equals(appspecFilePath)) {
+                FilePath appspecDestFP = new FilePath(sourceDirectory, "appspec.yml");
+                log("目标 appspecPath  ::::: " + appspecDestFP.toURI().getPath());
+                appspecFp.copyTo(appspecDestFP);
+            }
+            log("成功添加appspec文件");
+        } else {
+            throw new IllegalArgumentException("没有找到对应的appspec.yml文件！");
+        }
+
+        log("指定临时文件夹 tempTargetFileName ::::: ");
+        Path tempTargetDirName = Paths.get("/tmp/", StringUtils.substringBeforeLast(zipFileName, ".zip"));
+        Path tempTargetDir = Files.createDirectory(tempTargetDirName);
+        Path sourceDir = Paths.get(sourceDirectory.toURI());
+
+        if (StringUtils.isNotBlank(includes)) {
+            includes += ",appspec.yml";
+        }else{
+            includes = "appspec.yml";
+        }
+//                需要包含的文件或者文件夹
+        final ArrayList<PathMatcher> includePathMatchers = new ArrayList<>();
+        if (StringUtils.isNotBlank(includes)) {
+            for (String globRule : includes.split(",")) {
+                includePathMatchers.add(FileSystems.getDefault().getPathMatcher("glob:" + globRule));
+            }
+        }
+
+//        需要排除的文件或者文件夹
+        final ArrayList<PathMatcher> excludePathMatchers = new ArrayList<>();
+        if (StringUtils.isNotBlank(excludes)) {
+            for (String globRule : excludes.split(",")) {
+                excludePathMatchers.add(FileSystems.getDefault().getPathMatcher("glob:" + globRule));
+            }
+        }
+//        遍历源文件夹，拷贝符合条件的文件/文件夹到指定的目录
+        Files.walkFileTree(sourceDir, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+//                先进行排除的匹配
+                for (PathMatcher excludePathMatcher : excludePathMatchers) {
+                    if (excludePathMatcher.matches(Paths.get("/",sourceDir.relativize(dir).toString()))) {
+                        System.out.println("需要排除的文件夹：" + dir);
+                        return FileVisitResult.SKIP_SUBTREE;
+                    }
+                }
+//                再进行包含的匹配
+                for (PathMatcher pathMatcher : includePathMatchers) {
+                    if (pathMatcher.matches(Paths.get("/",sourceDir.relativize(dir).toString()))) {
+                        System.out.println("需要包含的文件夹：" + dir);
+                        Files.createDirectories(tempTargetDir.resolve(sourceDir.relativize(dir)));
+                        return FileVisitResult.CONTINUE;
+                    }
+                }
+//                默认未匹配也创建文件夹
+                Files.createDirectories(tempTargetDir.resolve(sourceDir.relativize(dir)));
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                for (PathMatcher excludePathMatcher : excludePathMatchers) {
+                    if (excludePathMatcher.matches(Paths.get("/",sourceDir.relativize(file).toString()))) {
+                        System.out.println("需要排除的文件：" + file);
+                        return FileVisitResult.CONTINUE;
+                    }
+                }
+                for (PathMatcher pathMatcher : includePathMatchers) {
+                    if (pathMatcher.matches(Paths.get("/",sourceDir.relativize(file).toString()))) {
+                        Files.copy(file, tempTargetDir.resolve(sourceDir.relativize(file)),StandardCopyOption.REPLACE_EXISTING);
+                        System.out.println("需要包含的文件：" + file.getFileName().toString());
+                        return FileVisitResult.CONTINUE;
+                    }
+                }
+//                默认未匹配也拷贝
+                Files.copy(file, tempTargetDir.resolve(sourceDir.relativize(file)),StandardCopyOption.REPLACE_EXISTING);
+                return FileVisitResult.CONTINUE;
+            }
+        });
+//        到这里文件就拷贝完了，开始生成安装包
+        FilePath tempTargetFilePath = new FilePath(tempTargetDir.toFile());
+        File targetZipFile = new File("/tmp/" + zipFileName);
+        boolean isCreated = targetZipFile.createNewFile();
+        if (!isCreated) {
+            log("Zip文件已存在，开始覆盖 : " + targetZipFile.getPath());
+        }
+        log("生成Zip文件 : " + targetZipFile.getAbsolutePath());
+        FileOutputStream zipfileOutputStream = new FileOutputStream(targetZipFile);
+        try {
+            tempTargetFilePath.zip(zipfileOutputStream);
+//            删除临时文件夹
+            tempTargetFilePath.deleteRecursive();
+        }finally {
+            zipfileOutputStream.close();
+        }
+        return targetZipFile;
+    }
 
     @Override
     public DescriptorImpl getDescriptor() {
