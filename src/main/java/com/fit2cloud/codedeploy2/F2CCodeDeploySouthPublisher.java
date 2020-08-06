@@ -671,7 +671,7 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
         log("生成Zip文件 : " + targetZipFile.getAbsolutePath());
         FileOutputStream zipfileOutputStream = new FileOutputStream(targetZipFile);
         try {
-            tempTargetFilePath.zip(zipfileOutputStream);
+            tempTargetFilePath.zip(zipfileOutputStream,"**");
 //            删除临时文件夹
             tempTargetFilePath.deleteRecursive();
         }finally {
