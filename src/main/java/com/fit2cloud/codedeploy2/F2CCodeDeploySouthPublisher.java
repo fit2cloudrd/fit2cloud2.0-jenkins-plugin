@@ -22,6 +22,7 @@ import org.jenkinsci.plugins.workflow.support.steps.build.RunWrapper;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
+import org.sonatype.aether.deployment.DeploymentException;
 
 import javax.annotation.Nonnull;
 import java.io.File;
@@ -66,6 +67,13 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
     private final boolean ossChecked;
     private final boolean s3Checked;
     private final boolean artifactoryChecked;
+    private final boolean buildImage;
+    private final String imageRepoSettingId;
+    private final String dockerHost;
+    private final String imageName;
+    private final String imageTag;
+    private final String dockerfile;
+    private final String imageAppVersion;
 
 
     private final String path;
@@ -117,7 +125,14 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
                                   String nexusArtifactVersion,
                                   String nexus3GroupId,
                                   String nexus3ArtifactId,
-                                  String nexus3ArtifactVersion) {
+                                  String nexus3ArtifactVersion,
+                                   boolean buildImage,
+                                   String imageRepoSettingId,
+                                   String dockerHost,
+                                   String imageName,
+                                   String imageTag,
+                                  String dockerfile,
+                                       String imageAppVersion) {
         this.f2cEndpoint = f2cEndpoint;
         this.f2cAccessKey = f2cAccessKey;
         this.artifactType = StringUtils.isBlank(artifactType) ? ArtifactType.NEXUS : artifactType;
@@ -156,6 +171,13 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
         this.nexus3GroupId = nexus3GroupId;
         this.nexus3ArtifactId = nexus3ArtifactId;
         this.nexus3ArtifactVersion = nexus3ArtifactVersion;
+        this.buildImage = buildImage;
+        this.imageRepoSettingId = imageRepoSettingId;
+        this.dockerHost = dockerHost;
+        this.imageName = imageName;
+        this.imageTag = imageTag;
+        this.dockerfile = dockerfile;
+        this.imageAppVersion = imageAppVersion;
     }
 
     /**
@@ -276,6 +298,21 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
                 }
 
             }
+
+            if (buildImage) {
+                if (StringUtils.isBlank(imageRepoSettingId)) {
+                    throw new CodeDeployException("镜像仓库不存在！");
+                }
+                if (StringUtils.isBlank(imageName)) {
+                    throw new CodeDeployException("镜像名称不能为空！");
+                }
+                if (StringUtils.isBlank(dockerfile)) {
+                    throw new CodeDeployException("Dockerfile 路径不能为空！");
+                }
+                if (StringUtils.isBlank(imageAppVersion)) {
+                    throw new CodeDeployException("镜像应用版本不能为空！");
+                }
+            }
         } catch (Exception e) {
             log(e.getMessage());
             return false;
@@ -284,7 +321,9 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
         // 查询仓库
         ApplicationRepository applicationRepository = null;
         ApplicationRepositorySetting repSetting = null;
+        ApplicationRepositorySetting imageRepoSetting = null;
         ApplicationRepository rep = null;
+        ApplicationRepository imageRepo = null;
         try {
             ApplicationDTO app = null;
             List<ApplicationDTO> applicationDTOS = fit2cloudClient.getApplications(workspaceId);
@@ -298,13 +337,19 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
                     if (setting.getId().equals(repositorySettingId)) {
                         repSetting = setting;
                     }
+                    if (setting.getId().equals(imageRepoSettingId)) {
+                        imageRepoSetting = setting;
+                    }
                 }
             }
-            if (repSetting != null) {
+            if (repSetting != null || imageRepoSetting != null) {
                 List<ApplicationRepository> repositories = fit2cloudClient.getApplicationRepositorys(workspaceId);
                 for (ApplicationRepository re : repositories) {
                     if (re.getId().equals(repSetting.getRepositoryId())) {
                         rep = re;
+                    }
+                    if (re.getId().equals(imageRepoSetting.getRepositoryId())) {
+                        imageRepo = re;
                     }
                 }
             }
@@ -328,7 +373,17 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
         File zipFile = null;
         String zipFileName = null;
         String newAddress = null;
+        String imagePath = null;
         try {
+            if (buildImage) {
+                if (imageRepo == null) {
+                    throw new DeploymentException("所选镜像仓库不存在！");
+                }
+                log("开始生成镜像");
+                String realImageTag = Utils.replaceTokens(build, listener, this.imageTag);
+                imagePath = HarborClient.push(workspace, imageRepo, dockerHost, dockerfile, this.logger, imageName, realImageTag);
+                log("镜像生成完成: " + imagePath);
+            }
             zipFileName = projectName + "-" + builtNumber + ".zip";
             String includesNew = Utils.replaceTokens(build, listener, this.includes);
             String excludesNew = Utils.replaceTokens(build, listener, this.excludes);
@@ -508,6 +563,15 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
             applicationVersion.setApplicationRepositoryId(repSetting.getRepositoryId());
             applicationVersion.setLocation(newAddress);
             appVersion = fit2cloudClient.createApplicationVersion(applicationVersion, this.workspaceId);
+//            容器应用版本
+            if (buildImage) {
+                String realImageAppVersion = Utils.replaceTokens(build, listener, this.imageAppVersion);
+                applicationVersion.setName(realImageAppVersion);
+                applicationVersion.setEnvironmentValueId(imageRepoSetting.getEnvId());
+                applicationVersion.setApplicationRepositoryId(imageRepoSetting.getRepositoryId());
+                applicationVersion.setLocation(imagePath);
+                fit2cloudClient.createApplicationVersion(applicationVersion, this.workspaceId);
+            }
         } catch (Exception e) {
             log("版本注册失败！ 原因：" + e.getMessage());
             return false;
@@ -852,6 +916,21 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
             return items;
         }
 
+        public ListBoxModel doFillImageRepoSettingIdItems(@QueryParameter String f2cAccessKey,
+                                                          @QueryParameter String f2cSecretKey,
+                                                          @QueryParameter String f2cEndpoint,
+                                                          @QueryParameter String workspaceId,
+                                                          @QueryParameter String applicationId) {
+            ListBoxModel options = doFillRepositorySettingIdItems(f2cAccessKey, f2cSecretKey, f2cEndpoint, workspaceId, applicationId);
+            ListBoxModel result = new ListBoxModel();
+            options.forEach(option -> {
+                if (StringUtils.containsIgnoreCase(option.name, "Harbor")) {
+                    result.add(option);
+                }
+            });
+            return result;
+        }
+
         @Override
         public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
             req.bindParameters(this);
@@ -1050,5 +1129,33 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
 
     public boolean isNexus3Checked() {
         return nexus3Checked;
+    }
+
+    public boolean buildImage() {
+        return this.buildImage;
+    }
+
+    public String getImageRepoSettingId() {
+        return imageRepoSettingId;
+    }
+
+    public String getDockerHost() {
+        return dockerHost;
+    }
+
+    public String getImageName() {
+        return imageName;
+    }
+
+    public String getImageTag() {
+        return imageTag;
+    }
+
+    public String getDockerfile() {
+        return dockerfile;
+    }
+
+    public String getImageAppVersion() {
+        return imageAppVersion;
     }
 }

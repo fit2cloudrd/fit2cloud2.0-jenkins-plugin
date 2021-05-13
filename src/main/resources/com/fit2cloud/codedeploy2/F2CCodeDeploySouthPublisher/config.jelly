@@ -92,6 +92,30 @@
         </f:entry>
     </f:section>
 
+    <f:section title="镜像构建设置">
+            <f:optionalBlock title="构建镜像" field="buildImage" checked="${instance.buildImage()}" inline="true">
+                <f:entry title="环境" field="imageRepoSettingId">
+                        <f:select/>
+                </f:entry>
+                <f:entry title="Docker主机地址" field="dockerHost">
+                    <f:textbox/>
+                </f:entry>
+                <f:entry title="镜像名" field="imageName">
+                    <f:textbox/>
+                </f:entry>
+                <f:entry title="镜像标签" field="imageTag">
+                    <f:textbox default="V1.0-${BUILD_NUMBER}"/>
+                </f:entry>
+                <f:entry title="Dockerfile 路径" field="dockerfile">
+                    <f:textbox default="Dockerfile"/>
+                </f:entry>
+                <f:entry title="镜像应用版本" field="imageAppVersion">
+                    <f:textbox default="V1.0-${BUILD_NUMBER}-docker"/>
+                </f:entry>
+            </f:optionalBlock>
+    </f:section>
+
+
     <f:section title="代码部署设置">
         <f:optionalBlock title="触发自动部署" field="autoDeploy" checked="${instance.isAutoDeploy()}" inline="true">
             <f:entry title="目标集群" field="clusterId">
