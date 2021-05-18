@@ -110,7 +110,7 @@ public class HarborClient {
             }
             bufferedReader.close();
             logger.println("镜像生成成功！");
-            logger.println("推送镜像到仓库...！");
+            logger.println("推送镜像到仓库...");
 //          第三步，上传镜像到仓库
             URI imagePushUri = new URIBuilder(dockerHost)
                     .setPath("images/" + repoPath + imageName + "/push")

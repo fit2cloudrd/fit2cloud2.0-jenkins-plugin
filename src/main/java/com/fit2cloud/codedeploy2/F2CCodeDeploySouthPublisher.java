@@ -281,7 +281,7 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
                 if (cloudServers.size() == 0) {
                     throw new CodeDeployException("此主机组下主机为空！");
                 }
-                if (!cloudServerId.equalsIgnoreCase("ALL")) {
+                if (!"ALL".equalsIgnoreCase(cloudServerId)) {
                     boolean findCLoudServer = false;
                     for (CloudServer cloudServer : cloudServers) {
                         if (cloudServer.getId().equals(this.cloudServerId)) {
@@ -337,7 +337,7 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
                     if (setting.getId().equals(repositorySettingId)) {
                         repSetting = setting;
                     }
-                    if (setting.getId().equals(imageRepoSettingId)) {
+                    if (buildImage && setting.getId().equals(imageRepoSettingId)) {
                         imageRepoSetting = setting;
                     }
                 }
@@ -348,7 +348,7 @@ public class F2CCodeDeploySouthPublisher extends Publisher implements SimpleBuil
                     if (re.getId().equals(repSetting.getRepositoryId())) {
                         rep = re;
                     }
-                    if (re.getId().equals(imageRepoSetting.getRepositoryId())) {
+                    if (buildImage && re.getId().equals(imageRepoSetting.getRepositoryId())) {
                         imageRepo = re;
                     }
                 }
