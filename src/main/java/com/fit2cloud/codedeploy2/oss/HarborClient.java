@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.fit2cloud.codedeploy2.CodeDeployException;
 import com.fit2cloud.codedeploy2.client.model.ApplicationRepository;
 import hudson.FilePath;
+import hudson.remoting.RemoteOutputStream;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
@@ -47,7 +48,7 @@ public class HarborClient {
     }
 
     public static String push(FilePath workspace, ApplicationRepository appRepo, String dockerHost,
-                              String dockerFile, PrintStream logger, String imageName, String imageTag) throws CodeDeployException, IOException, URISyntaxException {
+                              String dockerFile, PrintStream logger, String imageName, String imageTag) throws CodeDeployException, IOException, URISyntaxException, InterruptedException {
         logger.println("开始生成镜像...");
         String imagePath;
         CloseableHttpClient client;
@@ -63,7 +64,7 @@ public class HarborClient {
 //        第一步，先将用户指定的目录达成tar包，放到临时目录下/tmp/
             tmpTarFilePath = "/tmp/" + imageName + "-" + imageTag + ".tar";
             File tmpTarFile = new File(tmpTarFilePath);
-            tar(new File(workspace.getRemote()), new File(tmpTarFilePath));
+            workspace.tar(new FileOutputStream(tmpTarFilePath), "**");
 //            第二步，调用docker接口，打成镜像
             String repository = appRepo.getRepository().replace("/api/v2.0/projects","");
             if (!repository.endsWith("/")) {
@@ -170,97 +171,6 @@ public class HarborClient {
             str = str.replace(group1, ch + "");
         }
         return str;
-    }
-
-    public static void tar(File source, File dest) {
-        FileOutputStream out = null;
-        TarArchiveOutputStream tarOut = null;
-
-        try {
-            out = new FileOutputStream(dest);
-            tarOut = new TarArchiveOutputStream(out);
-            //解决文件名过长
-            tarOut.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
-            for (File file : Objects.requireNonNull(source.listFiles())) {
-                tarPack(file, tarOut, "");
-            }
-            tarOut.flush();
-            tarOut.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                if (out != null) {
-                    out.close();
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            try {
-                if (tarOut != null) {
-                    tarOut.close();
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    private static void tarPack(File source, TarArchiveOutputStream tarOut, String parentPath) {
-        if (source.isDirectory()) {
-            tarDir(source, tarOut, parentPath);
-        } else if (source.isFile()) {
-            tarFile(source, tarOut, parentPath);
-        }
-    }
-
-    private static void tarFile(File source, TarArchiveOutputStream tarOut, String parentPath) {
-        TarArchiveEntry entry = new TarArchiveEntry(parentPath + source.getName());
-        BufferedInputStream bis = null;
-        FileInputStream fis = null;
-        try {
-            entry.setSize(source.length());
-            tarOut.putArchiveEntry(entry);
-            fis = new FileInputStream(source);
-            bis = new BufferedInputStream(fis);
-            IOUtils.copy(bis, tarOut);
-            bis.close();
-            tarOut.closeArchiveEntry();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                if (bis != null) {
-                    bis.close();
-                }
-            } catch (Exception e2) {
-                e2.printStackTrace();
-            }
-            try {
-                if (fis != null) {
-                    fis.close();
-                }
-            } catch (Exception e2) {
-                e2.printStackTrace();
-            }
-        }
-    }
-
-    private static void tarDir(File sourceDir, TarArchiveOutputStream tarOut, String parentPath) {
-        //归档空目录
-        if (Objects.requireNonNull(sourceDir.listFiles()).length < 1) {
-            TarArchiveEntry entry = new TarArchiveEntry(parentPath + sourceDir.getName() + "/");
-            try {
-                tarOut.putArchiveEntry(entry);
-                tarOut.closeArchiveEntry();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        //递归 归档
-        for (File file : Objects.requireNonNull(sourceDir.listFiles())) {
-            tarPack(file, tarOut, parentPath + sourceDir.getName() + "/");
-        }
     }
 
     private static class RegistryAuthHeader {
