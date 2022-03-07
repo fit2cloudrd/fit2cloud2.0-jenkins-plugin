@@ -84,7 +84,7 @@ public class Fit2cloudClient {
             applicationRepositories.addAll(appReps);
             pageCount = page.getPageCount();
             currentPage++;
-        } while (pageCount > currentPage);
+        } while (pageCount >= currentPage);
         return applicationRepositories;
     }
 
@@ -111,7 +111,7 @@ public class Fit2cloudClient {
             applications.addAll(apps);
             pageCount = page.getPageCount();
             currentPage++;
-        } while (pageCount > currentPage);
+        } while (pageCount >= currentPage);
         return applications;
     }
 
@@ -131,7 +131,7 @@ public class Fit2cloudClient {
             clusters.addAll(clusts);
             pageCount = page.getPageCount();
             currentPage++;
-        } while (pageCount > currentPage);
+        } while (pageCount >= currentPage);
         return clusters;
     }
 
@@ -163,7 +163,7 @@ public class Fit2cloudClient {
             clusterRoles.addAll(clusrs);
             pageCount = page.getPageCount();
             currentPage++;
-        } while (pageCount > currentPage);
+        } while (pageCount >= currentPage);
         return clusterRoles;
     }
 
@@ -186,7 +186,7 @@ public class Fit2cloudClient {
             cloudServers.addAll(clds);
             pageCount = page.getPageCount();
             currentPage++;
-        } while (pageCount > currentPage);
+        } while (pageCount >= currentPage);
         return cloudServers;
     }
 
